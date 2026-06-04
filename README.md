@@ -22,6 +22,15 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [06_bao_cao_slide_checklist.md](./06_bao_cao_slide_checklist.md): khung report, slide và kịch bản thuyết trình.
 - [07_de_xuat_lam_ro_chu_de.md](./07_de_xuat_lam_ro_chu_de.md): đề xuất làm rõ scope, chế độ demo và tiêu chí chấm điểm.
 
+## Theo dõi công việc trên GitHub
+
+- Issue tracker: https://github.com/xuanhai0913/iot-traffic-light-wokwi/issues
+- Week 1 - Scope & thiết kế: https://github.com/xuanhai0913/iot-traffic-light-wokwi/milestone/1
+- Week 2 - Wokwi, code & test: https://github.com/xuanhai0913/iot-traffic-light-wokwi/milestone/2
+- Week 3 - Report, slide & nộp: https://github.com/xuanhai0913/iot-traffic-light-wokwi/milestone/3
+
+Nhóm dùng label `member: ...` để biết người phụ trách. Các issue của Nguyễn Xuân Hải được assign trực tiếp vào GitHub user `xuanhai0913`; thành viên 2 và 3 sẽ được assign thêm khi có GitHub username.
+
 ## Cấu trúc thư mục
 
 - `wokwi/`: lưu code Arduino/ESP32 và file `diagram.json`.
