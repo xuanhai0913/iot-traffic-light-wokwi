@@ -24,6 +24,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [08_requirements.md](./08_requirements.md): yêu cầu chức năng, CSDL, OOP, dashboard mobile/web và tiêu chí nghiệm thu.
 - [09_so_do_thiet_ke.md](./09_so_do_thiet_ke.md): bộ sơ đồ thiết kế gồm kiến trúc hệ thống, ERD, state machine, OOP class diagram và sequence flow.
 - [10_week1_hai_deliverables.md](./10_week1_hai_deliverables.md): phần Week 1 đã chốt của Nguyễn Xuân Hải gồm scope, sơ đồ hệ thống, linh kiện và pin map.
+- [11_week2_wokwi_code_test.md](./11_week2_wokwi_code_test.md): phần Week 2 gồm mạch Wokwi, code OOP, mode điều khiển và checklist test.
 
 ## Theo dõi công việc trên GitHub
 

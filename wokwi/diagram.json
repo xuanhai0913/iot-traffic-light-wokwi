@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "author": "Nguyen Xuan Hai - IoT Traffic Light Project",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": -4.76, "attrs": {} },
+
+    { "type": "wokwi-led", "id": "nsRed", "top": -90, "left": 220, "attrs": { "color": "red", "label": "NS RED" } },
+    { "type": "wokwi-led", "id": "nsYellow", "top": -42, "left": 220, "attrs": { "color": "yellow", "label": "NS YELLOW" } },
+    { "type": "wokwi-led", "id": "nsGreen", "top": 6, "left": 220, "attrs": { "color": "green", "label": "NS GREEN" } },
+
+    { "type": "wokwi-led", "id": "ewRed", "top": 78, "left": 220, "attrs": { "color": "red", "label": "EW RED" } },
+    { "type": "wokwi-led", "id": "ewYellow", "top": 126, "left": 220, "attrs": { "color": "yellow", "label": "EW YELLOW" } },
+    { "type": "wokwi-led", "id": "ewGreen", "top": 174, "left": 220, "attrs": { "color": "green", "label": "EW GREEN" } },
+
+    { "type": "wokwi-resistor", "id": "rNsRed", "top": -81.6, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rNsYellow", "top": -33.6, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rNsGreen", "top": 14.4, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rEwRed", "top": 86.4, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rEwYellow", "top": 134.4, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rEwGreen", "top": 182.4, "left": 129.6, "rotate": 90, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-lcd1602", "id": "lcd", "top": -138.4, "left": -294.4, "attrs": { "pins": "i2c" } },
+
+    { "type": "wokwi-pushbutton", "id": "btnAuto", "top": 265.4, "left": -294.4, "attrs": { "color": "green", "label": "AUTO" } },
+    { "type": "wokwi-pushbutton", "id": "btnNight", "top": 265.4, "left": -198.4, "attrs": { "color": "yellow", "label": "NIGHT" } },
+    { "type": "wokwi-pushbutton", "id": "btnPriority", "top": 265.4, "left": -92.8, "attrs": { "color": "blue", "label": "PRIORITY" } },
+    { "type": "wokwi-pushbutton", "id": "btnEmergency", "top": 265.4, "left": 32, "attrs": { "color": "red", "label": "EMERGENCY" } }
+  ],
+  "connections": [
+    [ "esp:16", "rNsRed:1", "red", [] ],
+    [ "rNsRed:2", "nsRed:A", "red", [] ],
+    [ "nsRed:C", "esp:GND.1", "black", [] ],
+
+    [ "esp:17", "rNsYellow:1", "gold", [] ],
+    [ "rNsYellow:2", "nsYellow:A", "gold", [] ],
+    [ "nsYellow:C", "esp:GND.1", "black", [] ],
+
+    [ "esp:18", "rNsGreen:1", "green", [] ],
+    [ "rNsGreen:2", "nsGreen:A", "green", [] ],
+    [ "nsGreen:C", "esp:GND.1", "black", [] ],
+
+    [ "esp:19", "rEwRed:1", "red", [] ],
+    [ "rEwRed:2", "ewRed:A", "red", [] ],
+    [ "ewRed:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:23", "rEwYellow:1", "gold", [] ],
+    [ "rEwYellow:2", "ewYellow:A", "gold", [] ],
+    [ "ewYellow:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:25", "rEwGreen:1", "green", [] ],
+    [ "rEwGreen:2", "ewGreen:A", "green", [] ],
+    [ "ewGreen:C", "esp:GND.2", "black", [] ],
+
+    [ "lcd:GND", "esp:GND.1", "black", [] ],
+    [ "lcd:VCC", "esp:5V", "red", [] ],
+    [ "lcd:SDA", "esp:21", "cyan", [] ],
+    [ "lcd:SCL", "esp:22", "blue", [] ],
+
+    [ "btnAuto:1.l", "esp:26", "green", [] ],
+    [ "btnAuto:2.r", "esp:GND.1", "black", [] ],
+    [ "btnNight:1.l", "esp:27", "gold", [] ],
+    [ "btnNight:2.r", "esp:GND.1", "black", [] ],
+    [ "btnPriority:1.l", "esp:32", "blue", [] ],
+    [ "btnPriority:2.r", "esp:GND.2", "black", [] ],
+    [ "btnEmergency:1.l", "esp:33", "red", [] ],
+    [ "btnEmergency:2.r", "esp:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}
