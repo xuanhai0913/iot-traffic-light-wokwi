@@ -25,6 +25,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [09_so_do_thiet_ke.md](./09_so_do_thiet_ke.md): bộ sơ đồ thiết kế gồm kiến trúc hệ thống, ERD, state machine, OOP class diagram và sequence flow.
 - [10_week1_hai_deliverables.md](./10_week1_hai_deliverables.md): phần Week 1 đã chốt của Nguyễn Xuân Hải gồm scope, sơ đồ hệ thống, linh kiện và pin map.
 - [11_week2_wokwi_code_test.md](./11_week2_wokwi_code_test.md): phần Week 2 gồm mạch Wokwi, code OOP, mode điều khiển và checklist test.
+- [12_mobile_app_extension.md](./12_mobile_app_extension.md): hướng triển khai mobile app/PWA điều khiển, kiến trúc thực tế và roadmap mở rộng.
 
 ## Theo dõi công việc trên GitHub
 
@@ -38,6 +39,7 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 ## Cấu trúc thư mục
 
 - `wokwi/`: lưu code Arduino/ESP32 và file `diagram.json`.
+- `mobile_app/`: lưu mobile web/PWA mock để điều khiển và giám sát giao lộ.
 - `report/`: lưu báo cáo Word/PDF.
 - `slides/`: lưu slide thuyết trình.
 - `assets/`: lưu hình mạch, sơ đồ khối, ảnh chụp mô phỏng.
@@ -48,6 +50,8 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 ## Hướng triển khai đề xuất
 
 MVP nên dùng ESP32 hoặc Arduino Uno trong Wokwi. Nếu cần nhấn mạnh IoT/app, dùng ESP32 và mô phỏng phần điều khiển qua dashboard/web mock hoặc MQTT ở mức mở rộng. Nếu deadline gấp, ưu tiên hoàn thiện mô phỏng Wokwi với nút nhấn và Serial Monitor trước.
+
+Nhánh mobile app nên triển khai theo dạng PWA/mobile web mock trước. Đây là lựa chọn nhẹ, chạy được trên Mac và đủ đưa vào báo cáo/slide. Khi triển khai thực tế, app sẽ gửi lệnh đến backend API hoặc MQTT broker, sau đó ESP32 nhận lệnh qua WiFi.
 
 ## Lưu ý để tăng điểm
 

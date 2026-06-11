@@ -1,0 +1,8 @@
+{
+  "name": "Traffic Control Mobile",
+  "short_name": "TrafficCtrl",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#111315",
+  "theme_color": "#111315"
+}

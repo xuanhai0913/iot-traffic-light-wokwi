@@ -42,8 +42,9 @@ Bộ sơ đồ thiết kế ban đầu nằm ở [09_so_do_thiet_ke.md](./09_so_
 | ER-02 | Có database lưu cấu hình pha đèn và lịch sử lệnh | Should | Có thể dùng SQLite/JSON mock |
 | ER-03 | Code áp dụng OOP | Should | Arduino C++ hoặc dashboard/backend |
 | ER-04 | Có dashboard/mobile web mock | Should | Giao diện điều khiển AUTO/NIGHT/PRIORITY/EMERGENCY |
-| ER-05 | Có API mô phỏng gửi lệnh điều khiển | Could | Nếu kịp làm backend đơn giản |
+| ER-05 | Có API mô phỏng gửi lệnh điều khiển | Should | Mobile app gửi command, backend lưu lịch sử |
 | ER-06 | Có mô tả kết nối IoT qua WiFi/MQTT/HTTP | Could | Dùng trong báo cáo và slide |
+| ER-07 | Có mobile app/PWA mock | Should | Đã có trong `mobile_app/` |
 
 ## Thiết kế CSDL đề xuất
 
@@ -95,7 +96,7 @@ Lưu lịch sử lệnh từ dashboard/mobile app.
 |---|---|---|
 | `id` | INTEGER PK | Mã lệnh |
 | `intersection_id` | INTEGER FK | Giao lộ nhận lệnh |
-| `command` | TEXT | `SET_AUTO`, `SET_NIGHT`, `SET_PRIORITY_NS`, `SET_EMERGENCY` |
+| `command` | TEXT | `SET_AUTO`, `SET_NIGHT`, `SET_PRIORITY_NS`, `SET_PRIORITY_EW`, `SET_EMERGENCY` |
 | `source` | TEXT | `button`, `serial`, `dashboard`, `mobile` |
 | `created_by` | TEXT | Người/thiết bị gửi lệnh |
 | `created_at` | DATETIME | Thời điểm gửi |
@@ -139,7 +140,7 @@ OOP có thể áp dụng ở 2 nơi: code điều khiển và dashboard/backend.
 
 ## Yêu cầu dashboard/mobile app
 
-Vì nhóm không có phần cứng thật, dashboard có thể là web responsive giả lập mobile.
+Vì nhóm không có phần cứng thật, dashboard/mobile app nên triển khai theo dạng PWA hoặc web responsive giả lập mobile. Đây là hướng thực tế nhất để demo trên Mac, chụp ảnh đưa vào report và vẫn thể hiện được tư duy IoT.
 
 | ID | Yêu cầu | Ghi chú |
 |---|---|---|
@@ -150,6 +151,18 @@ Vì nhóm không có phần cứng thật, dashboard có thể là web responsiv
 | UI-05 | Có nút EMERGENCY | Tất cả đỏ |
 | UI-06 | Hiển thị countdown và mode hiện tại | Đồng bộ với demo hoặc dữ liệu mock |
 | UI-07 | Hiển thị lịch sử lệnh gần nhất | Lấy từ database/mock data |
+| UI-08 | Cấu hình thời gian pha đèn | Xanh/vàng ở mức mock hoặc API |
+| UI-09 | Phân biệt trạng thái demo và trạng thái triển khai thật | Tránh nói app điều khiển trực tiếp Wokwi |
+
+## Phạm vi mobile app đã chốt
+
+| Phần | Quyết định |
+|---|---|
+| Loại app | Mobile web/PWA mock |
+| Mục tiêu demo | Chứng minh luồng vận hành và điều khiển từ app |
+| Kết nối Wokwi | Không kết nối trực tiếp trong MVP |
+| Kết nối thực tế | App -> Backend API/MQTT -> ESP32 -> Đèn |
+| Lưu lịch sử | Local mock hiện tại, database SQLite ở hướng mở rộng |
 
 ## API đề xuất nếu làm backend
 
@@ -160,6 +173,17 @@ Vì nhóm không có phần cứng thật, dashboard có thể là web responsiv
 | `GET` | `/api/commands` | Xem lịch sử lệnh |
 | `GET` | `/api/phase-configs` | Xem cấu hình pha đèn |
 | `PUT` | `/api/phase-configs/:id` | Cập nhật thời gian pha |
+
+Ví dụ command từ mobile app:
+
+```json
+{
+  "intersectionId": 1,
+  "command": "SET_EMERGENCY",
+  "source": "mobile",
+  "createdBy": "operator"
+}
+```
 
 ## Yêu cầu phi chức năng
 
@@ -180,5 +204,6 @@ Một bản được xem là đạt để nộp khi:
 - Có thiết kế CSDL ít nhất 4 bảng: mode, config, command, log.
 - Có phần giải thích OOP trong code.
 - Có dashboard/mobile mock hoặc ít nhất wireframe rõ ràng.
+- Có mô tả hướng mobile app gửi lệnh đến backend/API/MQTT.
 - Có report PDF, slide và video/GIF demo.
 - GitHub repo cập nhật đầy đủ file cuối.

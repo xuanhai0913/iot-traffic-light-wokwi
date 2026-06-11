@@ -20,6 +20,7 @@ Vì vậy cách trình bày tốt nhất là: Wokwi mô phỏng phần thiết b
 | State machine | Có | Giải thích thuật toán điều khiển đèn |
 | Class diagram/OOP | Có | Thể hiện áp dụng OOP vào code |
 | Sequence gửi lệnh | Nên có | Giải thích flow app gửi lệnh điều khiển |
+| Sequence mobile command | Nên có | Giải thích app mobile gửi lệnh qua API/MQTT đến ESP32 |
 
 ## 1. Sơ đồ kiến trúc tổng thể
 
@@ -232,6 +233,32 @@ sequenceDiagram
     UI->>User: Hiển thị mode và countdown
 ```
 
+## 5.1. Sequence mobile app điều khiển
+
+Source riêng: `assets/diagrams/mobile_command_flow.mmd`.
+
+```mermaid
+sequenceDiagram
+    actor Operator as Người vận hành
+    participant App as Mobile App / PWA
+    participant API as Backend API
+    participant DB as Database
+    participant Broker as MQTT / HTTP Gateway
+    participant ESP32 as ESP32 Controller
+    participant Lights as Đèn giao thông
+
+    Operator->>App: Chọn AUTO / NIGHT / PRIORITY / EMERGENCY
+    App->>API: POST /api/commands
+    API->>DB: Lưu control_commands
+    API->>Broker: Publish command
+    Broker->>ESP32: Gửi lệnh điều khiển
+    ESP32->>Lights: Cập nhật trạng thái đèn
+    ESP32->>Broker: Publish trạng thái mới
+    Broker->>API: Nhận status event
+    API->>DB: Lưu traffic_event_logs
+    API->>App: Trả status / countdown
+```
+
 ## 6. Data flow rút gọn
 
 ```mermaid
@@ -258,4 +285,3 @@ flowchart LR
 - Dùng state machine ở phần thuật toán điều khiển.
 - Dùng class diagram ở phần áp dụng OOP.
 - Dùng sequence flow ở phần dashboard/mobile app điều khiển.
-

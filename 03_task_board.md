@@ -56,10 +56,10 @@ Quy ước trạng thái:
 
 | Task | Owner | Trạng thái | Ghi chú |
 |---|---|---:|---|
-| Thiết kế giao diện điều khiển mock | Nguyễn Xuân Hải | [ ] | Mobile/web style |
-| Tạo màn hình AUTO/NIGHT/PRIORITY/EMERGENCY | Nguyễn Xuân Hải | [ ] | Có thể dùng HTML hoặc slide mock |
-| Viết phần giải thích mở rộng app | Nguyễn Xuân Hải | [ ] | App/WinForm gửi lệnh đến ESP32 |
-| Chốt dashboard mock đưa vào slide | Nguyễn Xuân Hải | [ ] | Không để app mock lệch scope |
+| Thiết kế giao diện điều khiển mock | Nguyễn Xuân Hải | [x] | Đã có `mobile_app/` |
+| Tạo màn hình AUTO/NIGHT/PRIORITY/EMERGENCY | Nguyễn Xuân Hải | [x] | Mobile PWA mock |
+| Viết phần giải thích mở rộng app | Nguyễn Xuân Hải | [x] | Đã có `12_mobile_app_extension.md` |
+| Chốt dashboard mock đưa vào slide | Nguyễn Xuân Hải | [~] | Cần chụp ảnh app đưa vào slide/report |
 
 ## E2. Database và OOP
 

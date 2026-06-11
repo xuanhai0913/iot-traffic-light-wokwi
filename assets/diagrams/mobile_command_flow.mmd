@@ -1,0 +1,19 @@
+sequenceDiagram
+    actor Operator as Người vận hành
+    participant App as Mobile App / PWA
+    participant API as Backend API
+    participant DB as Database
+    participant Broker as MQTT / HTTP Gateway
+    participant ESP32 as ESP32 Controller
+    participant Lights as Đèn giao thông
+
+    Operator->>App: Chọn AUTO / NIGHT / PRIORITY / EMERGENCY
+    App->>API: POST /api/commands
+    API->>DB: Lưu control_commands
+    API->>Broker: Publish command
+    Broker->>ESP32: Gửi lệnh điều khiển
+    ESP32->>Lights: Cập nhật trạng thái đèn
+    ESP32->>Broker: Publish trạng thái mới
+    Broker->>API: Nhận status event
+    API->>DB: Lưu traffic_event_logs
+    API->>App: Trả status / countdown

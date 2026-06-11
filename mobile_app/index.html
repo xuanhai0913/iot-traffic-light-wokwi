@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111315">
+  <title>Traffic Control Mobile</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell" aria-label="Traffic light mobile control">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Giao lộ mô phỏng</p>
+        <h1>Traffic Control</h1>
+      </div>
+      <div class="connection-pill" id="connectionState">
+        <span class="pulse-dot"></span>
+        Mock API
+      </div>
+    </header>
+
+    <section class="status-band" aria-label="Trạng thái hiện tại">
+      <div>
+        <p class="label">Mode</p>
+        <strong id="modeLabel">AUTO</strong>
+      </div>
+      <div>
+        <p class="label">Pha</p>
+        <strong id="phaseLabel">NS GREEN</strong>
+      </div>
+      <div>
+        <p class="label">Còn lại</p>
+        <strong><span id="countdownLabel">8</span><span id="countdownSuffix">s</span></strong>
+      </div>
+    </section>
+
+    <section class="intersection" aria-label="Mô phỏng đèn giao thông">
+      <div class="road road-vertical"></div>
+      <div class="road road-horizontal"></div>
+      <div class="crossing crossing-top"></div>
+      <div class="crossing crossing-bottom"></div>
+      <div class="crossing crossing-left"></div>
+      <div class="crossing crossing-right"></div>
+
+      <article class="light-cluster north-south" aria-label="Đèn Bắc Nam">
+        <span class="direction">Bắc - Nam</span>
+        <div class="stack">
+          <i id="nsRed" class="lamp red"></i>
+          <i id="nsYellow" class="lamp yellow"></i>
+          <i id="nsGreen" class="lamp green"></i>
+        </div>
+      </article>
+
+      <article class="light-cluster east-west" aria-label="Đèn Đông Tây">
+        <span class="direction">Đông - Tây</span>
+        <div class="stack horizontal">
+          <i id="ewRed" class="lamp red"></i>
+          <i id="ewYellow" class="lamp yellow"></i>
+          <i id="ewGreen" class="lamp green"></i>
+        </div>
+      </article>
+    </section>
+
+    <section class="controls" aria-label="Điều khiển chế độ">
+      <button class="mode-button active" data-mode="AUTO" type="button">
+        <span>AUTO</span>
+        <small>Chu kỳ</small>
+      </button>
+      <button class="mode-button" data-mode="NIGHT" type="button">
+        <span>NIGHT</span>
+        <small>Ban đêm</small>
+      </button>
+      <button class="mode-button" data-mode="PRIORITY_NS" type="button">
+        <span>NS</span>
+        <small>Ưu tiên</small>
+      </button>
+      <button class="mode-button" data-mode="PRIORITY_EW" type="button">
+        <span>EW</span>
+        <small>Ưu tiên</small>
+      </button>
+      <button class="mode-button danger" data-mode="EMERGENCY" type="button">
+        <span>SOS</span>
+        <small>Khẩn cấp</small>
+      </button>
+    </section>
+
+    <section class="config-panel" aria-label="Cấu hình thời gian pha">
+      <div class="section-heading">
+        <h2>Cấu hình pha</h2>
+        <button id="resetConfig" class="ghost-button" type="button">Reset</button>
+      </div>
+
+      <label class="range-row">
+        <span>Xanh</span>
+        <input id="greenSeconds" type="range" min="5" max="30" value="8">
+        <strong><span id="greenValue">8</span>s</strong>
+      </label>
+      <label class="range-row">
+        <span>Vàng</span>
+        <input id="yellowSeconds" type="range" min="2" max="10" value="3">
+        <strong><span id="yellowValue">3</span>s</strong>
+      </label>
+    </section>
+
+    <section class="history" aria-label="Lịch sử lệnh">
+      <div class="section-heading">
+        <h2>Lịch sử lệnh</h2>
+        <button id="clearHistory" class="ghost-button" type="button">Xóa</button>
+      </div>
+      <ol id="historyList"></ol>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
