@@ -7,7 +7,7 @@ Timeline đề xuất bắt đầu từ 04/06/2026. Nếu deadline của giảng
 | Giai đoạn | Thời gian | Mục tiêu | Kết quả cần có |
 |---|---:|---|---|
 | 1. Chốt đề tài và scope | 04/06/2026 | Chốt Project 2, chia việc, tạo folder | Bộ file quản lý dự án |
-| 2. Thiết kế hệ thống | 05/06 - 06/06 | Sơ đồ khối, state machine, danh sách linh kiện | Sơ đồ khối + thuật toán |
+| 2. Thiết kế hệ thống | 05/06 - 06/06 | Sơ đồ khối, state machine, CSDL, OOP, danh sách linh kiện | Sơ đồ khối + thuật toán + requirements |
 | 3. Dựng mô phỏng Wokwi | 07/06 - 09/06 | Dựng mạch và code AUTO mode | Wokwi chạy đèn tự động |
 | 4. Hoàn thiện chế độ điều khiển | 10/06 - 12/06 | NIGHT, PRIORITY, EMERGENCY, LCD countdown | Demo đủ chế độ |
 | 5. Chuẩn bị báo cáo | 13/06 - 15/06 | Viết report, chèn ảnh, code, kết quả | Bản nháp report |
@@ -29,12 +29,14 @@ Timeline đề xuất bắt đầu từ 04/06/2026. Nếu deadline của giảng
 - [ ] Chốt dùng ESP32 hay Arduino Uno.
 - [ ] Chốt linh kiện Wokwi.
 - [ ] Thiết kế state machine các pha đèn.
+- [ ] Chốt yêu cầu CSDL, OOP, dashboard/mobile app.
 
 ### 06/06/2026
 
 - [ ] Viết pseudo-code thuật toán.
 - [ ] Chốt thời gian từng pha.
 - [ ] Chốt các chế độ demo.
+- [ ] Viết schema database và mô tả OOP đưa vào báo cáo.
 
 ### 07/06 - 09/06/2026
 

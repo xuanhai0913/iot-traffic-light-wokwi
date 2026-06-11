@@ -21,6 +21,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [05_demo_wokwi.md](./05_demo_wokwi.md): kế hoạch dựng mạch, mô phỏng, quay demo.
 - [06_bao_cao_slide_checklist.md](./06_bao_cao_slide_checklist.md): khung report, slide và kịch bản thuyết trình.
 - [07_de_xuat_lam_ro_chu_de.md](./07_de_xuat_lam_ro_chu_de.md): đề xuất làm rõ scope, chế độ demo và tiêu chí chấm điểm.
+- [08_requirements.md](./08_requirements.md): yêu cầu chức năng, CSDL, OOP, dashboard mobile/web và tiêu chí nghiệm thu.
 
 ## Theo dõi công việc trên GitHub
 
@@ -43,3 +44,7 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 ## Hướng triển khai đề xuất
 
 MVP nên dùng ESP32 hoặc Arduino Uno trong Wokwi. Nếu cần nhấn mạnh IoT/app, dùng ESP32 và mô phỏng phần điều khiển qua dashboard/web mock hoặc MQTT ở mức mở rộng. Nếu deadline gấp, ưu tiên hoàn thiện mô phỏng Wokwi với nút nhấn và Serial Monitor trước.
+
+## Lưu ý để tăng điểm
+
+Môn này có thể được đánh giá cao hơn nếu sản phẩm không chỉ chạy mô phỏng đèn, mà còn thể hiện được nhiều kiến thức đã học: thiết kế CSDL, database, OOP, dashboard/mobile app, thuật toán điều khiển và mô hình IoT. Vì vậy nhóm nên trình bày rõ phần nào đã triển khai, phần nào là thiết kế mở rộng có thể triển khai thực tế.

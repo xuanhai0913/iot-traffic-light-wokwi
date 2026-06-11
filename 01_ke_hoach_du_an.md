@@ -8,6 +8,8 @@ Hệ thống mô phỏng điều khiển đèn giao thông thông minh tại m�
 
 Nhóm không có phần cứng thật, vì vậy dự án ưu tiên mô phỏng đầy đủ trên Wokwi. Báo cáo và slide sẽ tập trung vào sơ đồ khối, thuật toán điều khiển, mạch mô phỏng, code và kết quả chạy mô phỏng.
 
+Một điểm quan trọng khi làm bài lớn là nên thể hiện được nhiều kiến thức đã học trong môn và các học phần liên quan. Vì vậy ngoài mô phỏng Wokwi, nhóm cần trình bày thêm thiết kế CSDL, database lưu lịch sử điều khiển, ứng dụng OOP trong code, dashboard/mobile app điều khiển và hướng kết nối IoT.
+
 ## Phạm vi MVP
 
 MVP là bản tối thiểu phải hoàn thành để nộp được:
@@ -31,6 +33,9 @@ MVP là bản tối thiểu phải hoàn thành để nộp được:
 Chỉ làm nếu MVP đã ổn:
 
 - Dashboard web/mobile mock để thể hiện điều khiển từ app.
+- Thiết kế CSDL để lưu cấu hình pha đèn, lịch sử chuyển chế độ và log sự kiện.
+- Backend/API đơn giản để dashboard gửi lệnh điều khiển và đọc trạng thái.
+- Áp dụng OOP trong code: lớp điều khiển giao lộ, lớp đèn, lớp pha đèn, lớp quản lý chế độ.
 - ESP32 kết nối WiFi/MQTT để mô phỏng điều khiển IoT.
 - Hiển thị trạng thái lên màn hình OLED/LCD đẹp hơn.
 - Thêm cảm biến giả lập xe chờ bằng nút nhấn hoặc ultrasonic sensor.
@@ -77,4 +82,3 @@ Chỉ làm nếu MVP đã ổn:
 - Có video/GIF demo.
 - Báo cáo có đủ sơ đồ khối, nguyên lý, thuật toán, code, kết quả.
 - Slide trình bày trong 7-10 phút.
-

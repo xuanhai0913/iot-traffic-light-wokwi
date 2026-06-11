@@ -27,6 +27,9 @@
 - [ ] Sơ đồ khối.
 - [ ] Bảng linh kiện mô phỏng.
 - [ ] Bảng pin map.
+- [ ] Thiết kế CSDL/database.
+- [ ] Giải thích áp dụng OOP trong code.
+- [ ] Mô tả dashboard/mobile app điều khiển.
 - [ ] Lưu đồ/state machine.
 - [ ] Ảnh Wokwi AUTO mode.
 - [ ] Ảnh Wokwi NIGHT mode.
@@ -46,11 +49,12 @@
 | 3 | Sơ đồ khối hệ thống |
 | 4 | Linh kiện và mô phỏng Wokwi |
 | 5 | Thuật toán/state machine |
-| 6 | Các chế độ điều khiển |
-| 7 | Demo mô phỏng |
-| 8 | Kết quả đạt được |
-| 9 | Hạn chế và hướng phát triển |
-| 10 | Kết luận |
+| 6 | Thiết kế CSDL, OOP và dashboard điều khiển |
+| 7 | Các chế độ điều khiển |
+| 8 | Demo mô phỏng |
+| 9 | Kết quả đạt được |
+| 10 | Hạn chế và hướng phát triển |
+| 11 | Kết luận |
 
 ## Checklist trước khi nộp
 
@@ -66,4 +70,3 @@
 ## Gợi ý câu mở đầu thuyết trình
 
 Nhóm em chọn đề tài hệ thống điều khiển đèn giao thông tại một giao lộ. Do nhóm không có phần cứng thật, nhóm triển khai mô phỏng trên Wokwi để kiểm thử mạch, thuật toán điều khiển và các chế độ vận hành như tự động, ban đêm, ưu tiên và khẩn cấp.
-

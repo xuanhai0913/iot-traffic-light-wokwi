@@ -26,6 +26,9 @@ Quy ước trạng thái:
 | Chốt linh kiện Wokwi | Nguyễn Xuân Hải | [ ] | ESP32/Arduino, LED, LCD, button |
 | Review sơ đồ khối và state machine | Nguyễn Xuân Hải | [ ] | Đảm bảo thống nhất với demo |
 | Viết bảng chân kết nối | Thành viên 2 | [ ] | Pin map cho báo cáo |
+| Chốt requirements CSDL/OOP/dashboard | Nguyễn Xuân Hải | [x] | Đã tạo `08_requirements.md` |
+| Thiết kế ERD/database schema | Thành viên 3 | [ ] | Dựa theo `08_requirements.md` |
+| Thiết kế class/OOP diagram | Thành viên 2 | [ ] | TrafficLight, TrafficPhase, Controller |
 
 ## C. Mô phỏng Wokwi
 
@@ -57,6 +60,15 @@ Quy ước trạng thái:
 | Tạo màn hình AUTO/NIGHT/PRIORITY/EMERGENCY | Thành viên 3 | [ ] | Có thể dùng HTML hoặc slide mock |
 | Viết phần giải thích mở rộng app | Thành viên 3 | [ ] | App/WinForm gửi lệnh đến ESP32 |
 | Chốt dashboard mock đưa vào slide | Nguyễn Xuân Hải | [ ] | Không để app mock lệch scope |
+
+## E2. Database và OOP
+
+| Task | Owner | Trạng thái | Ghi chú |
+|---|---|---:|---|
+| Vẽ ERD database | Thành viên 3 | [ ] | intersections, modes, configs, commands, logs |
+| Viết SQL schema hoặc bảng mô tả CSDL | Thành viên 3 | [ ] | Có thể dùng SQLite/JSON mock |
+| Viết phần giải thích OOP trong code | Thành viên 2 | [ ] | Class, trách nhiệm, luồng gọi |
+| Review CSDL/OOP có khớp demo | Nguyễn Xuân Hải | [ ] | Tránh thiết kế quá rộng |
 
 ## F. Báo cáo
 
