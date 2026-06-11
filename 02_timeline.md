@@ -19,7 +19,7 @@ Timeline đề xuất bắt đầu từ 04/06/2026. Nếu deadline của giảng
 ### 04/06/2026
 
 - [x] Xác nhận tên đề tài.
-- [ ] Xác nhận nhóm 3 người và vai trò.
+- [x] Xác nhận nhóm 2 người và vai trò.
 - [x] Tạo folder OneDrive.
 - [x] Tạo file plan/timeline/task.
 

@@ -5,7 +5,7 @@
 - Môn học: Internet vạn vật (IoT)
 - Đề tài: Xây dựng hệ thống mô phỏng điều khiển hệ thống đèn giao thông ở 1 giao lộ
 - Hình thức demo chính: Wokwi
-- Thành viên: 3 người, bao gồm Nguyễn Xuân Hải
+- Thành viên: 2 người, gồm Nguyễn Xuân Hải và Trần Đình Đức
 - Sản phẩm cần nộp: report, slide, sản phẩm demo
 
 ## Mục tiêu
@@ -17,7 +17,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [01_ke_hoach_du_an.md](./01_ke_hoach_du_an.md): phạm vi, mục tiêu, yêu cầu, các bước tiến hành.
 - [02_timeline.md](./02_timeline.md): timeline theo ngày từ 04/06/2026 đến 18/06/2026.
 - [03_task_board.md](./03_task_board.md): danh sách task dạng checklist, có owner và trạng thái.
-- [04_phan_cong_3_thanh_vien.md](./04_phan_cong_3_thanh_vien.md): phân công việc cho 3 thành viên.
+- [04_phan_cong_2_thanh_vien.md](./04_phan_cong_2_thanh_vien.md): phân công việc cho 2 thành viên.
 - [05_demo_wokwi.md](./05_demo_wokwi.md): kế hoạch dựng mạch, mô phỏng, quay demo.
 - [06_bao_cao_slide_checklist.md](./06_bao_cao_slide_checklist.md): khung report, slide và kịch bản thuyết trình.
 - [07_de_xuat_lam_ro_chu_de.md](./07_de_xuat_lam_ro_chu_de.md): đề xuất làm rõ scope, chế độ demo và tiêu chí chấm điểm.
@@ -31,7 +31,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - Week 2 - Wokwi, code & test: https://github.com/xuanhai0913/iot-traffic-light-wokwi/milestone/2
 - Week 3 - Report, slide & nộp: https://github.com/xuanhai0913/iot-traffic-light-wokwi/milestone/3
 
-Nhóm dùng label `member: ...` để biết người phụ trách. Các issue của Nguyễn Xuân Hải được assign trực tiếp vào GitHub user `xuanhai0913`; thành viên 2 và 3 sẽ được assign thêm khi có GitHub username.
+Nhóm dùng label `member: ...` để biết người phụ trách. Các issue của Nguyễn Xuân Hải được assign trực tiếp vào GitHub user `xuanhai0913`; các issue của Trần Đình Đức dùng label `member: tran-dinh-duc` cho đến khi có GitHub username để assign trực tiếp.
 
 ## Cấu trúc thư mục
 
