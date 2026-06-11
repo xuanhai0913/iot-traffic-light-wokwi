@@ -4,17 +4,15 @@
 
 Demo phải cho thấy hệ thống đèn giao thông chạy được trên mô phỏng, có chuyển pha rõ ràng, có điều khiển chế độ và có hiển thị trạng thái.
 
-## Board đề xuất
+## Board đã chốt
 
-Ưu tiên 1: ESP32 DevKit nếu nhóm muốn nhấn mạnh IoT.
-
-Ưu tiên 2: Arduino Uno nếu muốn code đơn giản và ổn định nhất.
+Nhóm chốt dùng ESP32 DevKit để bài có màu IoT rõ hơn Arduino Uno và vẫn mô phỏng tốt trên Wokwi.
 
 ## Linh kiện
 
 | Linh kiện | Số lượng | Mục đích |
 |---|---:|---|
-| ESP32 hoặc Arduino Uno | 1 | Bộ điều khiển chính |
+| ESP32 DevKit | 1 | Bộ điều khiển chính |
 | LED đỏ | 2 | Đèn đỏ cho 2 hướng |
 | LED vàng | 2 | Đèn vàng cho 2 hướng |
 | LED xanh | 2 | Đèn xanh cho 2 hướng |
@@ -22,41 +20,24 @@ Demo phải cho thấy hệ thống đèn giao thông chạy được trên mô 
 | LCD 16x2 I2C | 1 | Hiển thị trạng thái/countdown |
 | Button | 3-4 | Chuyển chế độ |
 
-## Pin map dự kiến
-
-Nếu dùng Arduino Uno:
-
-| Chức năng | Pin |
-|---|---:|
-| Bắc-Nam đỏ | D2 |
-| Bắc-Nam vàng | D3 |
-| Bắc-Nam xanh | D4 |
-| Đông-Tây đỏ | D5 |
-| Đông-Tây vàng | D6 |
-| Đông-Tây xanh | D7 |
-| Button AUTO/NEXT | D8 |
-| Button NIGHT | D9 |
-| Button PRIORITY | D10 |
-| Button EMERGENCY | D11 |
-| LCD SDA | A4 |
-| LCD SCL | A5 |
-
-Nếu dùng ESP32:
+## Pin map đã chốt
 
 | Chức năng | GPIO |
 |---|---:|
-| Bắc-Nam đỏ | 13 |
-| Bắc-Nam vàng | 12 |
-| Bắc-Nam xanh | 14 |
-| Đông-Tây đỏ | 27 |
-| Đông-Tây vàng | 26 |
+| Bắc-Nam đỏ | 16 |
+| Bắc-Nam vàng | 17 |
+| Bắc-Nam xanh | 18 |
+| Đông-Tây đỏ | 19 |
+| Đông-Tây vàng | 23 |
 | Đông-Tây xanh | 25 |
-| Button AUTO/NEXT | 33 |
-| Button NIGHT | 32 |
-| Button PRIORITY | 35 |
-| Button EMERGENCY | 34 |
+| Button AUTO | 26 |
+| Button NIGHT | 27 |
+| Button PRIORITY | 32 |
+| Button EMERGENCY | 33 |
 | LCD SDA | 21 |
 | LCD SCL | 22 |
+
+Ghi chú: các button nối về GND và dùng `INPUT_PULLUP` trong code.
 
 ## Các trạng thái cần demo
 
@@ -103,4 +84,3 @@ Nếu dùng ESP32:
 - `assets/wokwi_priority.png`
 - `assets/wokwi_emergency.png`
 - `demo/demo_wokwi.mp4` hoặc `demo/demo_wokwi.gif`
-

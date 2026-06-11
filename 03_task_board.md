@@ -11,8 +11,8 @@ Quy ước trạng thái:
 | Task | Owner | Trạng thái | Ghi chú |
 |---|---|---:|---|
 | Tạo folder dự án trên OneDrive | Nguyễn Xuân Hải | [x] | Đã tạo |
-| Chốt scope MVP | Nguyễn Xuân Hải | [ ] | Cần cả nhóm xác nhận |
-| Chốt timeline | Nguyễn Xuân Hải | [ ] | Theo file 02 |
+| Chốt scope MVP | Nguyễn Xuân Hải | [x] | Đã chốt tại `10_week1_hai_deliverables.md` |
+| Chốt timeline | Nguyễn Xuân Hải | [x] | Theo file 02 |
 | Theo dõi tiến độ hằng ngày | Nguyễn Xuân Hải | [ ] | Cập nhật task board |
 | Review tiến độ từng thành viên | Nguyễn Xuân Hải | [ ] | Nhắc deadline và tháo blocker |
 | Chốt bản cuối trước khi nộp | Nguyễn Xuân Hải | [ ] | Kiểm tra report, slide, demo |
@@ -21,13 +21,13 @@ Quy ước trạng thái:
 
 | Task | Owner | Trạng thái | Ghi chú |
 |---|---|---:|---|
-| Vẽ sơ đồ khối | Nguyễn Xuân Hải | [ ] | Dùng Mermaid/draw.io/Canva/PowerPoint |
+| Vẽ sơ đồ khối | Nguyễn Xuân Hải | [x] | Đã có trong `09_so_do_thiet_ke.md` |
 | Thiết kế state machine đèn | Trần Đình Đức | [ ] | AUTO, NIGHT, PRIORITY, EMERGENCY |
-| Chốt linh kiện Wokwi | Nguyễn Xuân Hải | [ ] | ESP32/Arduino, LED, LCD, button |
-| Review sơ đồ khối và state machine | Nguyễn Xuân Hải | [ ] | Đảm bảo thống nhất với demo |
+| Chốt linh kiện Wokwi | Nguyễn Xuân Hải | [x] | ESP32, LED, LCD, button |
+| Review sơ đồ khối và state machine | Nguyễn Xuân Hải | [x] | Sơ đồ khối đã khớp scope demo |
 | Viết bảng chân kết nối | Trần Đình Đức | [ ] | Pin map cho báo cáo |
 | Chốt requirements CSDL/OOP/dashboard | Nguyễn Xuân Hải | [x] | Đã tạo `08_requirements.md` |
-| Thiết kế ERD/database schema | Nguyễn Xuân Hải | [ ] | Dựa theo `08_requirements.md` |
+| Thiết kế ERD/database schema | Trần Đình Đức | [ ] | Dựa theo `08_requirements.md` |
 | Thiết kế class/OOP diagram | Trần Đình Đức | [ ] | TrafficLight, TrafficPhase, Controller |
 
 ## C. Mô phỏng Wokwi
@@ -65,8 +65,8 @@ Quy ước trạng thái:
 
 | Task | Owner | Trạng thái | Ghi chú |
 |---|---|---:|---|
-| Vẽ ERD database | Nguyễn Xuân Hải | [ ] | intersections, modes, configs, commands, logs |
-| Viết SQL schema hoặc bảng mô tả CSDL | Nguyễn Xuân Hải | [ ] | Có thể dùng SQLite/JSON mock |
+| Vẽ ERD database | Trần Đình Đức | [ ] | intersections, modes, configs, commands, logs |
+| Viết SQL schema hoặc bảng mô tả CSDL | Trần Đình Đức | [ ] | Có thể dùng SQLite/JSON mock |
 | Viết phần giải thích OOP trong code | Trần Đình Đức | [ ] | Class, trách nhiệm, luồng gọi |
 | Review CSDL/OOP có khớp demo | Nguyễn Xuân Hải | [ ] | Tránh thiết kế quá rộng |
 

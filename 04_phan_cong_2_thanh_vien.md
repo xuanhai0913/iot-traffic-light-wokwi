@@ -4,8 +4,8 @@
 
 | Thành viên | Vai trò chính |
 |---|---|
-| Nguyễn Xuân Hải | Nhóm trưởng, chốt scope, thiết kế hệ thống, Wokwi, CSDL, dashboard mock, demo, tích hợp bản nộp |
-| Trần Đình Đức | Thuật toán, code điều khiển, OOP, nội dung report, slide thuyết trình |
+| Nguyễn Xuân Hải | Nhóm trưởng, chốt scope, thiết kế hệ thống, Wokwi, dashboard mock, demo, tích hợp bản nộp |
+| Trần Đình Đức | Thuật toán, code điều khiển, OOP, database/ERD, nội dung report, slide thuyết trình |
 
 ## Nguyễn Xuân Hải
 
@@ -17,7 +17,7 @@ Vai trò: nhóm trưởng, chốt scope, tích hợp mô phỏng, kiểm thử, 
 - Quản lý folder OneDrive, GitHub repo và tiến độ.
 - Chia task, theo dõi deadline, nhắc việc và tháo blocker.
 - Thiết kế sơ đồ tổng thể, pin map và hướng triển khai Wokwi.
-- Thiết kế/duyệt ERD, database schema và phần dashboard mock.
+- Review ERD, database schema và thiết kế phần dashboard mock.
 - Dựng mạch Wokwi hoặc hỗ trợ dựng mạch.
 - Tích hợp code của Đức vào mạch Wokwi.
 - Chụp ảnh mạch, quay video/GIF demo.
@@ -29,7 +29,7 @@ Vai trò: nhóm trưởng, chốt scope, tích hợp mô phỏng, kiểm thử, 
 
 - Folder dự án hoàn chỉnh.
 - GitHub repo và issue flow.
-- Sơ đồ kiến trúc, ERD/database, pin map.
+- Sơ đồ kiến trúc, pin map và review database.
 - Mạch Wokwi và ảnh chụp mô phỏng.
 - Dashboard/app mock ở mức trình bày.
 - Video/GIF demo.
@@ -47,6 +47,7 @@ Vai trò: phụ trách thuật toán, code điều khiển, OOP, nội dung báo
 - Viết code PRIORITY mode.
 - Viết code EMERGENCY mode.
 - Viết code countdown LCD/7-seg.
+- Thiết kế ERD/database schema theo `08_requirements.md`.
 - Áp dụng OOP vào code: `TrafficLight`, `TrafficPhase`, `IntersectionController`, `ModeManager`, `DisplayManager`.
 - Viết phần giải thích thuật toán, OOP và code trong báo cáo.
 - Viết nội dung report bản nháp.
@@ -56,6 +57,7 @@ Vai trò: phụ trách thuật toán, code điều khiển, OOP, nội dung báo
 
 - `sketch.ino` chạy được trên Wokwi.
 - State machine và bảng trạng thái các pha đèn.
+- ERD/database schema và mô tả CSDL.
 - Class/OOP diagram hoặc phần mô tả OOP.
 - Đoạn giải thích code cho report.
 - Nội dung report/slide phần thuật toán và chương trình.
@@ -73,8 +75,7 @@ Vai trò: phụ trách thuật toán, code điều khiển, OOP, nội dung báo
 
 - Chế độ nào bắt buộc demo, chế độ nào chỉ là mở rộng.
 - Mạch Wokwi bản cuối.
-- Database schema và dashboard mock đưa vào report/slide.
+- Database schema do Đức làm, Hải review trước khi đưa vào report/slide.
 - Code cuối cùng đưa vào báo cáo.
 - Ảnh/video/GIF demo dùng trong slide.
 - Cấu trúc report và slide trước khi nộp.
-

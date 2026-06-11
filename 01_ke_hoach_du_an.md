@@ -28,6 +28,15 @@ MVP là bản tối thiểu phải hoàn thành để nộp được:
 - Điều khiển chế độ bằng nút nhấn trong Wokwi hoặc Serial Monitor.
 - Có ảnh chụp mô phỏng và video/GIF demo.
 
+## Quyết định kỹ thuật đã chốt
+
+- Board mô phỏng chính: ESP32 DevKit.
+- Công cụ mô phỏng: Wokwi.
+- Hiển thị: LCD 16x2 I2C.
+- Điều khiển mode: 4 nút nhấn dùng `INPUT_PULLUP`.
+- Database/ERD: dùng để trình bày phần dashboard/app và lưu lịch sử điều khiển, không bắt buộc Wokwi phải kết nối database thật.
+- App/mobile: làm dashboard web/mobile mock để trình bày luồng điều khiển, không làm app native trong MVP.
+
 ## Phạm vi mở rộng
 
 Chỉ làm nếu MVP đã ổn:
