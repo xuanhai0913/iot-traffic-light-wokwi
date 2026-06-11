@@ -1,0 +1,14 @@
+flowchart LR
+    Input["Input: button / dashboard command"]
+    Validate["Kiểm tra lệnh"]
+    Mode["Cập nhật mode"]
+    Control["Điều khiển LED + countdown"]
+    Log["Ghi log trạng thái"]
+    Output["Output: đèn, LCD, dashboard"]
+
+    Input --> Validate
+    Validate --> Mode
+    Mode --> Control
+    Control --> Log
+    Control --> Output
+    Log --> Output

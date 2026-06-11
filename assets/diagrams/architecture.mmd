@@ -1,0 +1,24 @@
+flowchart TD
+    Operator["Người vận hành"]
+    Admin["Người quản trị"]
+    Dashboard["Dashboard / Mobile Web"]
+    Backend["Backend API"]
+    Database[("SQLite / Database")]
+    Gateway["Serial / WiFi / MQTT Gateway"]
+    Controller["ESP32 / Arduino Controller"]
+    Wokwi["Wokwi Simulation"]
+    Lights["2 cụm đèn giao thông"]
+    Display["LCD / 7-seg countdown"]
+    Buttons["Nút nhấn đổi chế độ"]
+
+    Operator --> Dashboard
+    Admin --> Dashboard
+    Dashboard --> Backend
+    Backend --> Database
+    Backend --> Gateway
+    Gateway --> Controller
+    Buttons --> Controller
+    Controller --> Lights
+    Controller --> Display
+    Controller --> Wokwi
+    Controller --> Backend

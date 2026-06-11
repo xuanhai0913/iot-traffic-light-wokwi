@@ -30,6 +30,10 @@
 - [ ] Thiết kế CSDL/database.
 - [ ] Giải thích áp dụng OOP trong code.
 - [ ] Mô tả dashboard/mobile app điều khiển.
+- [ ] Sơ đồ ERD.
+- [ ] Sơ đồ state machine.
+- [ ] Sơ đồ class/OOP.
+- [ ] Sơ đồ sequence gửi lệnh điều khiển.
 - [ ] Lưu đồ/state machine.
 - [ ] Ảnh Wokwi AUTO mode.
 - [ ] Ảnh Wokwi NIGHT mode.

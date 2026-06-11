@@ -1,0 +1,64 @@
+classDiagram
+    class TrafficLight {
+        -int redPin
+        -int yellowPin
+        -int greenPin
+        +begin()
+        +setRed()
+        +setYellow()
+        +setGreen()
+        +turnOff()
+    }
+
+    class TrafficPhase {
+        +String name
+        +String nsLight
+        +String ewLight
+        +int durationSeconds
+    }
+
+    class ModeManager {
+        -String currentMode
+        +setMode(mode)
+        +getMode()
+        +isAuto()
+        +isNight()
+        +isEmergency()
+    }
+
+    class DisplayManager {
+        +begin()
+        +showMode(mode)
+        +showCountdown(seconds)
+        +showLights(nsLight, ewLight)
+    }
+
+    class IntersectionController {
+        -TrafficLight nsLight
+        -TrafficLight ewLight
+        -ModeManager modeManager
+        -DisplayManager displayManager
+        +begin()
+        +update()
+        +runAuto()
+        +runNight()
+        +runPriority(direction)
+        +runEmergency()
+    }
+
+    class CommandRepository {
+        +saveCommand(command)
+        +listRecentCommands()
+    }
+
+    class TrafficLogRepository {
+        +saveLog(state)
+        +listRecentLogs()
+    }
+
+    IntersectionController --> TrafficLight
+    IntersectionController --> TrafficPhase
+    IntersectionController --> ModeManager
+    IntersectionController --> DisplayManager
+    ModeManager --> CommandRepository
+    IntersectionController --> TrafficLogRepository

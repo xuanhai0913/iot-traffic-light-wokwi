@@ -11,6 +11,8 @@
 - Dashboard/mobile app để điều khiển và giám sát.
 - Báo cáo có sơ đồ khối, sơ đồ mạch, ERD/database schema, flow xử lý và kết quả demo.
 
+Bộ sơ đồ thiết kế ban đầu nằm ở [09_so_do_thiet_ke.md](./09_so_do_thiet_ke.md). Các source Mermaid riêng nằm trong `assets/diagrams/`.
+
 ## Vai trò người dùng
 
 | Vai trò | Mô tả |
@@ -180,4 +182,3 @@ Một bản được xem là đạt để nộp khi:
 - Có dashboard/mobile mock hoặc ít nhất wireframe rõ ràng.
 - Có report PDF, slide và video/GIF demo.
 - GitHub repo cập nhật đầy đủ file cuối.
-
