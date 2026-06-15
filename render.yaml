@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: traffic-light-csharp-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    healthCheckPath: /api/health

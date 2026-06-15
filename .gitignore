@@ -2,4 +2,10 @@
 *.tmp
 *.log
 ~$*
+backend/*.db
+backend/*.db-journal
+backend/__pycache__/
+backend/bin/
+backend/obj/
+.dotnet/
 

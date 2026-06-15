@@ -32,8 +32,10 @@ enum class TrafficMode {
 
 struct TrafficPhase {
   const char *name;
-  LightColor nsColor;
-  LightColor ewColor;
+  LightColor northColor;
+  LightColor southColor;
+  LightColor eastColor;
+  LightColor westColor;
   uint8_t durationSeconds;
 };
 
@@ -65,6 +67,37 @@ private:
   uint8_t redPin;
   uint8_t yellowPin;
   uint8_t greenPin;
+};
+
+class RoadApproach {
+public:
+  RoadApproach(const char *code, const char *name, TrafficLight &light)
+      : code(code), name(name), light(light) {}
+
+  void begin() {
+    light.begin();
+  }
+
+  void show(LightColor color) {
+    light.show(color);
+  }
+
+  void turnOff() {
+    light.turnOff();
+  }
+
+  const char *getCode() const {
+    return code;
+  }
+
+  const char *getName() const {
+    return name;
+  }
+
+private:
+  const char *code;
+  const char *name;
+  TrafficLight &light;
 };
 
 class ModeManager {
@@ -262,13 +295,16 @@ private:
 
 class IntersectionController {
 public:
-  IntersectionController(TrafficLight &nsLight, TrafficLight &ewLight, ModeManager &modeManager,
+  IntersectionController(RoadApproach &north, RoadApproach &south, RoadApproach &east, RoadApproach &west,
+                         ModeManager &modeManager,
                          DisplayManager &display)
-      : nsLight(nsLight), ewLight(ewLight), modeManager(modeManager), display(display) {}
+      : north(north), south(south), east(east), west(west), modeManager(modeManager), display(display) {}
 
   void begin() {
-    nsLight.begin();
-    ewLight.begin();
+    north.begin();
+    south.begin();
+    east.begin();
+    west.begin();
     phaseStartedMs = millis();
     setAutoPhase(0);
   }
@@ -298,16 +334,18 @@ public:
   }
 
 private:
-  TrafficLight &nsLight;
-  TrafficLight &ewLight;
+  RoadApproach &north;
+  RoadApproach &south;
+  RoadApproach &east;
+  RoadApproach &west;
   ModeManager &modeManager;
   DisplayManager &display;
 
   const TrafficPhase phases[4] = {
-      {"NS GREEN", LightColor::Green, LightColor::Red, 8},
-      {"NS YELLOW", LightColor::Yellow, LightColor::Red, 3},
-      {"EW GREEN", LightColor::Red, LightColor::Green, 8},
-      {"EW YELLOW", LightColor::Red, LightColor::Yellow, 3},
+      {"NS GREEN", LightColor::Green, LightColor::Green, LightColor::Red, LightColor::Red, 8},
+      {"NS YELLOW", LightColor::Yellow, LightColor::Yellow, LightColor::Red, LightColor::Red, 3},
+      {"EW GREEN", LightColor::Red, LightColor::Red, LightColor::Green, LightColor::Green, 8},
+      {"EW YELLOW", LightColor::Red, LightColor::Red, LightColor::Yellow, LightColor::Yellow, 3},
   };
 
   uint8_t currentPhase = 0;
@@ -316,8 +354,7 @@ private:
   bool nightYellowOn = false;
 
   void resetForMode() {
-    nsLight.turnOff();
-    ewLight.turnOff();
+    turnAllOff();
     phaseStartedMs = millis();
     nightBlinkMs = millis();
     nightYellowOn = false;
@@ -345,38 +382,63 @@ private:
     if (millis() - nightBlinkMs >= 500) {
       nightBlinkMs = millis();
       nightYellowOn = !nightYellowOn;
-      nsLight.show(nightYellowOn ? LightColor::Yellow : LightColor::Off);
-      ewLight.show(nightYellowOn ? LightColor::Yellow : LightColor::Off);
+      applyAll(nightYellowOn ? LightColor::Yellow : LightColor::Off);
     }
 
     display.showStatus(modeManager.modeName(), nightYellowOn ? "YELLOW ON" : "YELLOW OFF", -1);
   }
 
   void runPriority(bool northSouthPriority) {
-    nsLight.show(northSouthPriority ? LightColor::Green : LightColor::Red);
-    ewLight.show(northSouthPriority ? LightColor::Red : LightColor::Green);
+    applyColors(
+        northSouthPriority ? LightColor::Green : LightColor::Red,
+        northSouthPriority ? LightColor::Green : LightColor::Red,
+        northSouthPriority ? LightColor::Red : LightColor::Green,
+        northSouthPriority ? LightColor::Red : LightColor::Green);
     display.showStatus(modeManager.modeName(), northSouthPriority ? "NS GO" : "EW GO", -1);
   }
 
   void runEmergency() {
-    nsLight.show(LightColor::Red);
-    ewLight.show(LightColor::Red);
+    applyAll(LightColor::Red);
     display.showStatus(modeManager.modeName(), "ALL RED", -1);
   }
 
   void setAutoPhase(uint8_t nextPhase) {
     currentPhase = nextPhase;
     phaseStartedMs = millis();
-    nsLight.show(phases[currentPhase].nsColor);
-    ewLight.show(phases[currentPhase].ewColor);
+    const TrafficPhase &phase = phases[currentPhase];
+    applyColors(phase.northColor, phase.southColor, phase.eastColor, phase.westColor);
+  }
+
+  void applyColors(LightColor northColor, LightColor southColor, LightColor eastColor, LightColor westColor) {
+    north.show(northColor);
+    south.show(southColor);
+    east.show(eastColor);
+    west.show(westColor);
+  }
+
+  void applyAll(LightColor color) {
+    applyColors(color, color, color, color);
+  }
+
+  void turnAllOff() {
+    north.turnOff();
+    south.turnOff();
+    east.turnOff();
+    west.turnOff();
   }
 };
 
-TrafficLight northSouthLight(Pins::NS_RED, Pins::NS_YELLOW, Pins::NS_GREEN);
-TrafficLight eastWestLight(Pins::EW_RED, Pins::EW_YELLOW, Pins::EW_GREEN);
+TrafficLight northLight(Pins::NS_RED, Pins::NS_YELLOW, Pins::NS_GREEN);
+TrafficLight southLight(Pins::NS_RED, Pins::NS_YELLOW, Pins::NS_GREEN);
+TrafficLight eastLight(Pins::EW_RED, Pins::EW_YELLOW, Pins::EW_GREEN);
+TrafficLight westLight(Pins::EW_RED, Pins::EW_YELLOW, Pins::EW_GREEN);
+RoadApproach northApproach("NORTH", "North approach", northLight);
+RoadApproach southApproach("SOUTH", "South approach", southLight);
+RoadApproach eastApproach("EAST", "East approach", eastLight);
+RoadApproach westApproach("WEST", "West approach", westLight);
 ModeManager modeManager;
 DisplayManager display;
-IntersectionController controller(northSouthLight, eastWestLight, modeManager, display);
+IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display);
 
 void setup() {
   modeManager.begin();

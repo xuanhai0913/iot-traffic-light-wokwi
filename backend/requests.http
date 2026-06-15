@@ -1,0 +1,92 @@
+@baseUrl = http://127.0.0.1:8000
+@intersectionId = 1
+@phasePlanId = 1
+
+### Health
+GET {{baseUrl}}/api/health
+
+### Traffic modes
+GET {{baseUrl}}/api/traffic-modes
+
+### Intersections
+GET {{baseUrl}}/api/intersections
+
+### Current status
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/status
+
+### Dashboard snapshot
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/dashboard
+
+### Road approaches
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/approaches
+
+### Add road approach
+POST {{baseUrl}}/api/intersections/{{intersectionId}}/approaches
+Content-Type: application/json
+
+{
+  "code": "NORTH_LEFT",
+  "name": "North left turn",
+  "displayOrder": 5,
+  "isActive": true
+}
+
+### Phase plans
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/phase-plans
+
+### Update active phase durations
+PUT {{baseUrl}}/api/phase-plans/{{phasePlanId}}
+Content-Type: application/json
+
+{
+  "greenSeconds": 10,
+  "yellowSeconds": 3
+}
+
+### Create and activate a basic 4-way phase plan
+POST {{baseUrl}}/api/intersections/{{intersectionId}}/phase-plans
+Content-Type: application/json
+
+{
+  "name": "Demo 10-3 plan",
+  "greenSeconds": 10,
+  "yellowSeconds": 3,
+  "activate": true
+}
+
+### Send AUTO command
+POST {{baseUrl}}/api/intersections/{{intersectionId}}/commands
+Content-Type: application/json
+
+{
+  "command": "SET_AUTO",
+  "source": "mobile",
+  "createdBy": "operator"
+}
+
+### Send EMERGENCY command
+POST {{baseUrl}}/api/intersections/{{intersectionId}}/commands
+Content-Type: application/json
+
+{
+  "command": "SET_EMERGENCY",
+  "source": "mobile",
+  "createdBy": "operator"
+}
+
+### Command history
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/commands?limit=10
+
+### Logs
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/logs
+
+### Device/backend log insert
+POST {{baseUrl}}/api/intersections/{{intersectionId}}/logs
+Content-Type: application/json
+
+{
+  "modeCode": "AUTO",
+  "phaseCode": "NS_GREEN",
+  "remainingSeconds": 7,
+  "statusJson": "{\"source\":\"manual-smoke-test\"}"
+}

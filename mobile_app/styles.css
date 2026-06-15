@@ -48,8 +48,15 @@ input {
 }
 
 .topbar,
+.api-panel,
 .status-band,
+.ops-summary,
+.live-panel,
 .config-panel,
+.roads-panel,
+.phase-panel,
+.mode-panel,
+.logs-panel,
 .history {
   border: 1px solid rgba(242, 239, 232, 0.1);
   background: linear-gradient(180deg, rgba(36, 42, 45, 0.94), rgba(24, 28, 30, 0.94));
@@ -107,6 +114,18 @@ h2 {
   white-space: nowrap;
 }
 
+.connection-pill.offline {
+  border-color: rgba(255, 78, 69, 0.42);
+  color: var(--red);
+  background: rgba(255, 78, 69, 0.08);
+}
+
+.connection-pill.offline .pulse-dot {
+  background: var(--red);
+  box-shadow: none;
+  animation: none;
+}
+
 .pulse-dot {
   width: 9px;
   height: 9px;
@@ -114,6 +133,34 @@ h2 {
   background: var(--green);
   box-shadow: 0 0 0 0 rgba(57, 211, 127, 0.55);
   animation: pulse 1.6s infinite;
+}
+
+.api-panel {
+  border-radius: 8px;
+  min-height: 82px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.api-panel strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.api-input {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 9px;
+  border: 1px solid rgba(242, 239, 232, 0.12);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .status-band {
@@ -135,6 +182,27 @@ h2 {
   margin-top: 8px;
   font-size: 1.05rem;
   line-height: 1.05;
+}
+
+.ops-summary {
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+}
+
+.ops-summary > div {
+  min-height: 66px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.ops-summary strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .intersection {
@@ -222,6 +290,63 @@ h2 {
   bottom: 18px;
 }
 
+.approach-card {
+  position: absolute;
+  min-width: 76px;
+  min-height: 42px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  padding: 7px;
+  color: var(--text);
+  background: rgba(10, 11, 11, 0.76);
+  border: 1px solid rgba(242, 239, 232, 0.12);
+  z-index: 2;
+}
+
+.approach-card span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.approach-card strong {
+  font-size: 0.78rem;
+}
+
+.approach-card strong[data-color="green"] {
+  color: var(--green);
+}
+
+.approach-card strong[data-color="yellow"] {
+  color: var(--yellow);
+}
+
+.approach-card strong[data-color="red"] {
+  color: var(--red);
+}
+
+.approach-north {
+  top: 18px;
+  left: calc(50% - 38px);
+}
+
+.approach-south {
+  bottom: 18px;
+  left: calc(50% - 38px);
+}
+
+.approach-east {
+  right: 18px;
+  top: calc(50% - 21px);
+}
+
+.approach-west {
+  left: 18px;
+  top: calc(50% - 21px);
+}
+
 .direction {
   display: block;
   color: var(--muted);
@@ -278,6 +403,12 @@ h2 {
   cursor: pointer;
 }
 
+.mode-button:disabled,
+.ghost-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .mode-button span,
 .mode-button small {
   display: block;
@@ -305,6 +436,11 @@ h2 {
 }
 
 .config-panel,
+.live-panel,
+.roads-panel,
+.phase-panel,
+.mode-panel,
+.logs-panel,
 .history {
   border-radius: 8px;
   padding: 16px;
@@ -328,6 +464,60 @@ h2 {
   cursor: pointer;
 }
 
+.signal-grid {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.signal-card {
+  min-height: 62px;
+  border: 1px solid rgba(242, 239, 232, 0.1);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.signal-card span,
+.signal-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.signal-card strong {
+  display: block;
+  margin: 4px 0;
+  font-size: 1rem;
+}
+
+.signal-card.green strong {
+  color: var(--green);
+}
+
+.signal-card.yellow strong {
+  color: var(--yellow);
+}
+
+.signal-card.red strong {
+  color: var(--red);
+}
+
+.mini-badge {
+  min-width: 32px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--cyan);
+  background: rgba(88, 197, 214, 0.1);
+  border: 1px solid rgba(88, 197, 214, 0.28);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .range-row {
   min-height: 44px;
   display: grid;
@@ -346,6 +536,122 @@ h2 {
 input[type="range"] {
   width: 100%;
   accent-color: var(--cyan);
+}
+
+.road-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.road-form input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(242, 239, 232, 0.12);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.road-form input::placeholder {
+  color: rgba(170, 164, 154, 0.75);
+}
+
+#roadList {
+  min-height: 74px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+#roadList li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid rgba(242, 239, 232, 0.08);
+}
+
+#roadList strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+#roadList span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.road-toggle {
+  min-width: 48px;
+  min-height: 30px;
+  border: 1px solid rgba(255, 78, 69, 0.35);
+  border-radius: 999px;
+  color: var(--red);
+  background: rgba(255, 78, 69, 0.08);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.road-toggle.on {
+  border-color: rgba(57, 211, 127, 0.36);
+  color: var(--green);
+  background: rgba(57, 211, 127, 0.08);
+}
+
+#phaseStepList,
+#modeList,
+#logList {
+  min-height: 74px;
+  max-height: 230px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+#phaseStepList li,
+#modeList li,
+#logList li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+  border-top: 1px solid rgba(242, 239, 232, 0.08);
+}
+
+#phaseStepList strong,
+#modeList strong,
+#logList strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+#phaseStepList span,
+#modeList span,
+#logList span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.phase-duration,
+.priority-badge {
+  min-width: 38px;
+  min-height: 28px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--cyan) !important;
+  background: rgba(88, 197, 214, 0.1);
+  border: 1px solid rgba(88, 197, 214, 0.24);
+  font-weight: 900;
 }
 
 #historyList {
@@ -380,6 +686,13 @@ input[type="range"] {
   padding: 18px 0;
 }
 
+.api-message {
+  min-height: 20px;
+  margin: -2px 2px 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 @keyframes pulse {
   70% {
     box-shadow: 0 0 0 9px rgba(57, 211, 127, 0);
@@ -399,6 +712,15 @@ input[type="range"] {
   }
 
   .status-band {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-summary,
+  .signal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .road-form {
     grid-template-columns: 1fr;
   }
 }

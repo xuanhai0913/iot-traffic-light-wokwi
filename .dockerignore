@@ -1,0 +1,9 @@
+.git
+.dotnet
+backend/bin
+backend/obj
+backend/*.db
+backend/*.db-journal
+demo
+slides
+report

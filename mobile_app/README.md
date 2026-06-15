@@ -1,35 +1,38 @@
-# Mobile App Mock
+# Mobile App PWA
 
-Đây là bản mobile web/PWA mock để trình bày hướng mở rộng điều khiển đèn giao thông bằng app.
+Day la mobile web/PWA dung de van hanh MVP. Ban hien tai goi backend C# ASP.NET Core tai `http://127.0.0.1:8000`.
 
-## Cách chạy
+## Cach chay
 
-Mở trực tiếp:
+1. Chay backend:
 
-```text
-mobile_app/index.html
+```powershell
+cd backend
+dotnet run
 ```
 
-Hoặc chạy local server từ thư mục repo:
+2. Chay static server tu thu muc repo:
 
-```bash
-python3 -m http.server 4173
+```powershell
+python -m http.server 4173
 ```
 
-Sau đó mở:
+3. Mo app:
 
 ```text
 http://localhost:4173/mobile_app/
 ```
 
-## Chức năng đã có
+## Chuc nang da co
 
-- Hiển thị trạng thái đèn 2 hướng Bắc-Nam và Đông-Tây.
-- Điều khiển `AUTO`, `NIGHT`, `PRIORITY NS`, `PRIORITY EW`, `EMERGENCY`.
-- Hiển thị mode, pha hiện tại và countdown.
-- Cấu hình thời gian xanh/vàng ở mức mock.
-- Lưu lịch sử lệnh bằng `localStorage`.
+- Doc trang thai den, mode, phase va countdown tu API.
+- Gui lenh `AUTO`, `NIGHT`, `PRIORITY_NS`, `PRIORITY_EW`, `EMERGENCY`.
+- Cap nhat thoi gian xanh/vang vao SQLite thong qua API.
+- Xem lich su command tu backend.
+- Xem, them va bat/tat road approaches trong mot giao lo.
+- Xem dashboard truc quan gom metrics, 4 huong signal, signal heads, phase plan, mode priority va event logs.
+- Doi backend URL truc tiep trong o `Backend API URL`; app luu gia tri vao `localStorage`.
 
-## Ghi chú triển khai thật
+## Ghi chu
 
-Bản này chưa kết nối trực tiếp Wokwi/ESP32. Trong triển khai thực tế, app sẽ gửi command đến backend API hoặc MQTT broker. ESP32 nhận lệnh qua WiFi, cập nhật đèn, rồi gửi trạng thái ngược lại cho app.
+Wokwi/ESP32 van chay doc lap bang button/Serial trong Muc 1-2. Backend va app dung cung command workflow de demo lop van hanh va database; ban nang cao co the noi ESP32 voi backend bang MQTT.

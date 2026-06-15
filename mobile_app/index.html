@@ -12,31 +12,59 @@
   <main class="app-shell" aria-label="Traffic light mobile control">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Giao lộ mô phỏng</p>
+        <p class="eyebrow">Giao lo mo phong</p>
         <h1>Traffic Control</h1>
       </div>
       <div class="connection-pill" id="connectionState">
         <span class="pulse-dot"></span>
-        Mock API
+        <span id="connectionText">Offline</span>
       </div>
     </header>
 
-    <section class="status-band" aria-label="Trạng thái hiện tại">
+    <section class="api-panel" aria-label="Ket noi backend">
+      <div>
+        <p class="label">Backend</p>
+        <strong id="apiBaseLabel">http://127.0.0.1:8000</strong>
+        <input id="apiBaseInput" class="api-input" value="http://127.0.0.1:8000" aria-label="Backend API URL">
+      </div>
+      <button id="refreshData" class="ghost-button" type="button">Tai lai</button>
+    </section>
+
+    <section class="status-band" aria-label="Trang thai hien tai">
       <div>
         <p class="label">Mode</p>
         <strong id="modeLabel">AUTO</strong>
       </div>
       <div>
         <p class="label">Pha</p>
-        <strong id="phaseLabel">NS GREEN</strong>
+        <strong id="phaseLabel">NS_GREEN</strong>
       </div>
       <div>
-        <p class="label">Còn lại</p>
+        <p class="label">Con lai</p>
         <strong><span id="countdownLabel">8</span><span id="countdownSuffix">s</span></strong>
       </div>
     </section>
 
-    <section class="intersection" aria-label="Mô phỏng đèn giao thông">
+    <section class="ops-summary" aria-label="Tong quan van hanh">
+      <div>
+        <p class="label">Roads</p>
+        <strong id="approachMetric">0</strong>
+      </div>
+      <div>
+        <p class="label">Plans</p>
+        <strong id="planMetric">0</strong>
+      </div>
+      <div>
+        <p class="label">Commands</p>
+        <strong id="commandMetric">0</strong>
+      </div>
+      <div>
+        <p class="label">Logs</p>
+        <strong id="logMetric">0</strong>
+      </div>
+    </section>
+
+    <section class="intersection" aria-label="Mo phong den giao thong">
       <div class="road road-vertical"></div>
       <div class="road road-horizontal"></div>
       <div class="crossing crossing-top"></div>
@@ -44,8 +72,8 @@
       <div class="crossing crossing-left"></div>
       <div class="crossing crossing-right"></div>
 
-      <article class="light-cluster north-south" aria-label="Đèn Bắc Nam">
-        <span class="direction">Bắc - Nam</span>
+      <article class="light-cluster north-south" aria-label="Den Bac Nam">
+        <span class="direction">Bac - Nam</span>
         <div class="stack">
           <i id="nsRed" class="lamp red"></i>
           <i id="nsYellow" class="lamp yellow"></i>
@@ -53,42 +81,67 @@
         </div>
       </article>
 
-      <article class="light-cluster east-west" aria-label="Đèn Đông Tây">
-        <span class="direction">Đông - Tây</span>
+      <article class="light-cluster east-west" aria-label="Den Dong Tay">
+        <span class="direction">Dong - Tay</span>
         <div class="stack horizontal">
           <i id="ewRed" class="lamp red"></i>
           <i id="ewYellow" class="lamp yellow"></i>
           <i id="ewGreen" class="lamp green"></i>
         </div>
       </article>
+
+      <article class="approach-card approach-north">
+        <span>NORTH</span>
+        <strong id="northSignal">--</strong>
+      </article>
+      <article class="approach-card approach-south">
+        <span>SOUTH</span>
+        <strong id="southSignal">--</strong>
+      </article>
+      <article class="approach-card approach-east">
+        <span>EAST</span>
+        <strong id="eastSignal">--</strong>
+      </article>
+      <article class="approach-card approach-west">
+        <span>WEST</span>
+        <strong id="westSignal">--</strong>
+      </article>
     </section>
 
-    <section class="controls" aria-label="Điều khiển chế độ">
+    <section class="controls" aria-label="Dieu khien che do">
       <button class="mode-button active" data-mode="AUTO" type="button">
         <span>AUTO</span>
-        <small>Chu kỳ</small>
+        <small>Chu ky</small>
       </button>
       <button class="mode-button" data-mode="NIGHT" type="button">
         <span>NIGHT</span>
-        <small>Ban đêm</small>
+        <small>Ban dem</small>
       </button>
       <button class="mode-button" data-mode="PRIORITY_NS" type="button">
         <span>NS</span>
-        <small>Ưu tiên</small>
+        <small>Uu tien</small>
       </button>
       <button class="mode-button" data-mode="PRIORITY_EW" type="button">
         <span>EW</span>
-        <small>Ưu tiên</small>
+        <small>Uu tien</small>
       </button>
       <button class="mode-button danger" data-mode="EMERGENCY" type="button">
         <span>SOS</span>
-        <small>Khẩn cấp</small>
+        <small>Khan cap</small>
       </button>
     </section>
 
-    <section class="config-panel" aria-label="Cấu hình thời gian pha">
+    <section class="live-panel" aria-label="Live signal heads">
       <div class="section-heading">
-        <h2>Cấu hình pha</h2>
+        <h2>Signal heads</h2>
+        <span id="signalCount" class="mini-badge">0</span>
+      </div>
+      <div id="signalGrid" class="signal-grid"></div>
+    </section>
+
+    <section class="config-panel" aria-label="Cau hinh thoi gian pha">
+      <div class="section-heading">
+        <h2>Cau hinh pha</h2>
         <button id="resetConfig" class="ghost-button" type="button">Reset</button>
       </div>
 
@@ -98,19 +151,58 @@
         <strong><span id="greenValue">8</span>s</strong>
       </label>
       <label class="range-row">
-        <span>Vàng</span>
+        <span>Vang</span>
         <input id="yellowSeconds" type="range" min="2" max="10" value="3">
         <strong><span id="yellowValue">3</span>s</strong>
       </label>
     </section>
 
-    <section class="history" aria-label="Lịch sử lệnh">
+    <section class="roads-panel" aria-label="Quan ly tuyen duong">
       <div class="section-heading">
-        <h2>Lịch sử lệnh</h2>
-        <button id="clearHistory" class="ghost-button" type="button">Xóa</button>
+        <h2>Tuyen duong</h2>
+        <span id="roadCount" class="mini-badge">0</span>
+      </div>
+      <div class="road-form">
+        <input id="roadCode" maxlength="24" placeholder="Ma: NORTH_LEFT" aria-label="Ma tuyen">
+        <input id="roadName" maxlength="40" placeholder="Ten tuyen duong" aria-label="Ten tuyen">
+        <button id="addRoad" class="ghost-button" type="button">Them</button>
+      </div>
+      <ol id="roadList"></ol>
+    </section>
+
+    <section class="phase-panel" aria-label="Phase plan">
+      <div class="section-heading">
+        <h2>Phase plan</h2>
+        <span id="phasePlanName" class="mini-badge">--</span>
+      </div>
+      <ol id="phaseStepList"></ol>
+    </section>
+
+    <section class="mode-panel" aria-label="Mode priority">
+      <div class="section-heading">
+        <h2>Mode priority</h2>
+        <span class="mini-badge">OOP</span>
+      </div>
+      <ol id="modeList"></ol>
+    </section>
+
+    <section class="history" aria-label="Lich su lenh">
+      <div class="section-heading">
+        <h2>Lich su lenh</h2>
+        <button id="clearHistory" class="ghost-button" type="button">Tai lai</button>
       </div>
       <ol id="historyList"></ol>
     </section>
+
+    <section class="logs-panel" aria-label="Event logs">
+      <div class="section-heading">
+        <h2>Event logs</h2>
+        <button id="refreshLogs" class="ghost-button" type="button">Tai lai</button>
+      </div>
+      <ol id="logList"></ol>
+    </section>
+
+    <p id="apiMessage" class="api-message" role="status"></p>
   </main>
 
   <script src="./app.js"></script>
