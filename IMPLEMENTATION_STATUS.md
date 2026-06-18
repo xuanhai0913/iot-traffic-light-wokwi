@@ -91,9 +91,10 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 ## Verification Notes
 
 - `mobile_app/app.js` passes `node --check`.
-- `dotnet build backend/TrafficLightMvp.csproj` passes with 0 warnings and 0 errors.
+- `dotnet build backend/TrafficLightMvp.csproj` passes with 0 warnings and 0 errors. Re-verified on 2026-06-18 via `scripts/verify-backend.ps1` (0 Warning(s), 0 Error(s)).
 - `dotnet build backend/TrafficLightMvp.csproj -c Release -p:UseAppHost=false` passes with 0 warnings and 0 errors.
-- Backend integration tests pass: 8/8 tests in `backend/tests/TrafficLightMvp.IntegrationTests`.
+- Backend integration tests pass: 8/8 tests in `backend/tests/TrafficLightMvp.IntegrationTests`. Re-verified on 2026-06-18 via `scripts/verify-backend.ps1` (Passed: 8, Failed: 0, Skipped: 0).
+- `scripts/verify-backend.ps1` automates build + test for the C# backend using the portable .NET 8 SDK shipped under `.dotnet/`.
 - Backend smoke test passes against `http://127.0.0.1:8000`.
 - MQTT bridge connected successfully to `broker.hivemq.com:1883` during local verification.
 - Portable Flutter 3.44.2 and Android SDK 36 are installed in ignored workspace folders.
