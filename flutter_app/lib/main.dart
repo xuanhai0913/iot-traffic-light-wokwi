@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const TrafficOperatorApp());
@@ -58,6 +59,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   final TextEditingController apiController =
       TextEditingController(text: defaultApiBase);
   late ApiClient api = ApiClient(defaultApiBase);
+  SettingsStore? _settings;
   Timer? pollTimer;
 
   DashboardSnapshot dashboard = DashboardSnapshot.empty();
@@ -69,9 +71,27 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   @override
   void initState() {
     super.initState();
-    refreshDashboard();
+    _bootstrap();
     pollTimer =
         Timer.periodic(const Duration(seconds: 1), (_) => refreshStatusOnly());
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      final store = await SettingsStore.open();
+      final savedBase = store.readApiBase();
+      if (savedBase != null && mounted) {
+        setState(() {
+          api = ApiClient(savedBase);
+          apiController.text = savedBase;
+        });
+      }
+      _settings = store;
+    } catch (error) {
+      // Persistent settings are optional; the app still works with
+      // the default API URL if SharedPreferences is unavailable.
+    }
+    await refreshDashboard();
   }
 
   @override
@@ -252,6 +272,18 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       online = false;
       message = 'Da doi API URL';
     });
+
+    // Persist for next launch so the operator does not have to
+    // re-enter the URL on a real Android device.
+    final store = _settings;
+    if (store != null) {
+      try {
+        await store.writeApiBase(value);
+      } catch (_) {
+        // Persistence failure should not block the URL change.
+      }
+    }
+
     await refreshDashboard();
   }
 
@@ -1545,6 +1577,40 @@ class TrafficLog {
 
 const defaultApiBase =
     kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000';
+
+const String _apiBasePrefsKey = 'iot_traffic_light.api_base_url';
+
+class SettingsStore {
+  SettingsStore._(this._prefs);
+
+  final SharedPreferences _prefs;
+
+  static Future<SettingsStore> open() async {
+    final prefs = await SharedPreferences.getInstance();
+    return SettingsStore._(prefs);
+  }
+
+  String? readApiBase() {
+    final raw = _prefs.getString(_apiBasePrefsKey);
+    if (raw == null) {
+      return null;
+    }
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  Future<void> writeApiBase(String value) async {
+    final trimmed = value.trim().replaceAll(RegExp(r'/+$'), '');
+    if (trimmed.isEmpty) {
+      await _prefs.remove(_apiBasePrefsKey);
+      return;
+    }
+    await _prefs.setString(_apiBasePrefsKey, trimmed);
+  }
+}
 
 String modeLabel(String modeCode) {
   return switch (modeCode) {
