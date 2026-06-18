@@ -5,12 +5,13 @@
 - Môn học: Internet vạn vật (IoT)
 - Đề tài: Xây dựng hệ thống mô phỏng điều khiển hệ thống đèn giao thông ở 1 giao lộ
 - Hình thức demo chính: Wokwi
+- Hình thức điều khiển mở rộng: Flutter/PWA -> C# API -> MQTT -> ESP32/Wokwi
 - Thành viên: 2 người, gồm Nguyễn Xuân Hải và Trần Đình Đức
 - Sản phẩm cần nộp: report, slide, sản phẩm demo
 
 ## Mục tiêu
 
-Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô phỏng được hoàn toàn trên Mac, không cần phần cứng thật. Hệ thống có các chế độ tự động, ban đêm, ưu tiên một hướng và khẩn cấp. Demo phải đủ trực quan để quay video/GIF và đưa vào báo cáo.
+Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô phỏng được hoàn toàn trên Wokwi, không cần phần cứng thật. Hệ thống có các chế độ tự động, ban đêm, ưu tiên một hướng và khẩn cấp. Bản nâng cấp hiện tại bổ sung C# backend, SQLite, Flutter app source và MQTT bridge để điện thoại/app có thể gửi lệnh xuống ESP32/Wokwi qua broker public.
 
 ## File quản lý dự án
 
@@ -40,6 +41,8 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 
 - `wokwi/`: lưu code Arduino/ESP32 và file `diagram.json`.
 - `mobile_app/`: lưu mobile web/PWA mock để điều khiển và giám sát giao lộ.
+- `flutter_app/`: lưu Flutter mobile app source gọi C# API.
+- `backend/`: lưu C# ASP.NET Core API, SQLite schema và MQTT bridge.
 - `report/`: lưu báo cáo Word/PDF.
 - `slides/`: lưu slide thuyết trình.
 - `assets/`: lưu hình mạch, sơ đồ khối, ảnh chụp mô phỏng.
@@ -49,10 +52,70 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 
 ## Hướng triển khai đề xuất
 
-MVP nên dùng ESP32 hoặc Arduino Uno trong Wokwi. Nếu cần nhấn mạnh IoT/app, dùng ESP32 và mô phỏng phần điều khiển qua dashboard/web mock hoặc MQTT ở mức mở rộng. Nếu deadline gấp, ưu tiên hoàn thiện mô phỏng Wokwi với nút nhấn và Serial Monitor trước.
+MVP nâng cấp dùng ESP32 trong Wokwi vì ESP32 có WiFi tích hợp và phù hợp IoT/MQTT hơn Arduino Uno. Luồng product:
 
-Nhánh mobile app nên triển khai theo dạng PWA/mobile web mock trước. Đây là lựa chọn nhẹ, chạy được trên Mac và đủ đưa vào báo cáo/slide. Khi triển khai thực tế, app sẽ gửi lệnh đến backend API hoặc MQTT broker, sau đó ESP32 nhận lệnh qua WiFi.
+```text
+Flutter/PWA -> C# Backend API -> MQTT Broker -> ESP32/Wokwi -> Den + LCD
+ESP32/Wokwi -> MQTT Broker -> C# Backend API -> Flutter/PWA
+```
+
+PWA trong `mobile_app/` vẫn dùng được để demo nhanh trên browser. Flutter app trong `flutter_app/` là hướng mobile app thật cho điện thoại/emulator.
+
+## Chạy nhanh backend + MQTT
+
+```powershell
+cd backend
+dotnet restore
+$env:MQTT_ENABLED="true"
+dotnet run
+```
+
+Kiểm tra:
+
+```text
+http://127.0.0.1:8000/api/health
+http://127.0.0.1:8000/api/mqtt/status
+```
+
+MQTT topic mặc định:
+
+```text
+traffic/hainx-iot-traffic-light/intersections/1/commands
+traffic/hainx-iot-traffic-light/intersections/1/status
+traffic/hainx-iot-traffic-light/intersections/1/acks
+```
 
 ## Lưu ý để tăng điểm
 
 Môn này có thể được đánh giá cao hơn nếu sản phẩm không chỉ chạy mô phỏng đèn, mà còn thể hiện được nhiều kiến thức đã học: thiết kế CSDL, database, OOP, dashboard/mobile app, thuật toán điều khiển và mô hình IoT. Vì vậy nhóm nên trình bày rõ phần nào đã triển khai, phần nào là thiết kế mở rộng có thể triển khai thực tế.
+
+## Demo nhanh sau ban nang cap
+
+Chay backend cho dien thoai va Wokwi:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\run-backend-demo.ps1
+```
+
+Kiem tra source Wokwi truoc khi mo simulator:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\test-wokwi-source.ps1
+```
+
+Build Android APK:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\build-flutter-android.ps1
+```
+
+APK output:
+
+```text
+dist/android/iot-traffic-light-v1.0.0.apk
+```
+
+Kich ban nghiem thu day du nam trong `docs/demo_dien_thoai.md` va `demo/wokwi_capture_checklist.md`.

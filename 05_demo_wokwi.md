@@ -79,8 +79,9 @@ Ghi chú: các button nối về GND và dùng `INPUT_PULLUP` trong code.
 - `wokwi/sketch.ino`
 - `wokwi/diagram.json`
 - `assets/so_do_khoi.png`
-- `assets/wokwi_auto.png`
-- `assets/wokwi_night.png`
-- `assets/wokwi_priority.png`
-- `assets/wokwi_emergency.png`
+- `assets/wokwi/wokwi_auto.png`
+- `assets/wokwi/wokwi_night.png`
+- `assets/wokwi/wokwi_priority_ns.png`
+- `assets/wokwi/wokwi_priority_ew.png`
+- `assets/wokwi/wokwi_emergency.png`
 - `demo/demo_wokwi.mp4` hoặc `demo/demo_wokwi.gif`

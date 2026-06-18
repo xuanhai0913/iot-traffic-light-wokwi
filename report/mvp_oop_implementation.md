@@ -1,192 +1,197 @@
-# Phu luc trien khai MVP va OOP
+# Phụ lục OOP đã triển khai
 
-Tai lieu nay dung de chen vao bao cao hoac tach thanh phu luc khi thuyet trinh. Noi dung tap trung vao cac diem cong: OOP, backend C#, SQLite, API that, PWA dashboard va mo hinh mo rong nhieu tuyen duong.
+> Phụ lục này bám theo mã nguồn ngày 15/06/2026. Nội dung mô tả OOP thực tế, không suy rộng thành clean architecture hoặc production architecture.
 
-## 1. Pham vi da trien khai
+## 1. Tổng quan
 
-He thong hien co 3 lop:
+OOP được áp dụng ở cả ba lớp:
 
-| Lop | Cong nghe | Vai tro |
+- Firmware ESP32: đóng gói GPIO, mode, hiển thị, state machine và MQTT.
+- Backend C#: database, repository, service, MQTT bridge và DTO.
+- Flutter: widget, API client và domain/view model.
+
+Mẫu thiết kế chính là **encapsulation**, **composition**, phân tách trách nhiệm và dependency injection. Inheritance/polymorphism chỉ xuất hiện ở mức framework, không phải trọng tâm domain.
+
+## 2. Firmware ESP32/Wokwi
+
+Nguồn: `wokwi/sketch.ino`.
+
+```mermaid
+classDiagram
+    class TrafficLight {
+        -redPin
+        -yellowPin
+        -greenPin
+        +begin()
+        +show(color)
+        +turnOff()
+    }
+
+    class RoadApproach {
+        -code
+        -name
+        -TrafficLight light
+        +begin()
+        +show(color)
+    }
+
+    class ModeManager {
+        -TrafficMode mode
+        +update()
+        +applyExternalCommand(command)
+        +getMode()
+    }
+
+    class DisplayManager {
+        +begin()
+        +showStatus(mode, phase, remaining)
+    }
+
+    class IntersectionController {
+        -TrafficPhase phases
+        +begin()
+        +update()
+        +phaseCode()
+        +remainingSeconds()
+    }
+
+    class MqttClientManager {
+        +begin()
+        +update()
+        -publishAck()
+        -publishStatus()
+    }
+
+    RoadApproach *-- TrafficLight
+    IntersectionController o-- RoadApproach
+    IntersectionController o-- ModeManager
+    IntersectionController o-- DisplayManager
+    MqttClientManager o-- ModeManager
+    MqttClientManager o-- IntersectionController
+```
+
+| Thành phần | Trách nhiệm | Giá trị OOP |
 |---|---|---|
-| Thiet bi mo phong | ESP32/Wokwi + Arduino C++ | Dieu khien den, LCD, button, Serial command |
-| Ung dung van hanh | Mobile web/PWA HTML/CSS/JS | Dashboard, control mode, phase config, roads, history, logs |
-| Backend va database | C# ASP.NET Core 8 + SQLite | REST API, xu ly command, luu config/history/log |
+| `TrafficLight` | Quản lý chân đỏ/vàng/xanh | Ẩn chi tiết GPIO |
+| `RoadApproach` | Tên, mã và đèn của một hướng | Mô hình hóa domain |
+| `ModeManager` | Nút, Serial, external command, mode | Tách input khỏi state machine |
+| `DisplayManager` | LCD và Serial | Single responsibility |
+| `IntersectionController` | Pha, timer, màu đèn | Composition và điều phối domain |
+| `MqttClientManager` | Kết nối, subscribe, publish | Tách giao tiếp khỏi điều khiển |
+| `TrafficPhase` | Dữ liệu một pha | Value-like domain structure |
 
-MVP dap ung Muc 1 va Muc 2:
+### Giới hạn cần nêu
 
-- Wokwi chay du mode `AUTO`, `NIGHT`, `PRIORITY_NS`, `PRIORITY_EW`, `EMERGENCY`.
-- Backend C# cung cap API that, khong chi mock UI.
-- SQLite luu command, log, phase plan, road approaches, signal heads va conflict rules.
-- PWA goi backend API that va hien thi dashboard truc quan.
-- Mo hinh database ho tro N tuyen duong, N signal heads va nhieu phase plans.
+- `TrafficPhase` là `struct`, không phải class có hành vi.
+- Không có hierarchy cho các mode hoặc strategy riêng.
+- NORTH/SOUTH dùng hai object `TrafficLight` khác nhau nhưng trùng cùng bộ GPIO; EAST/WEST cũng vậy. Bốn hướng là bốn object logic nhưng chỉ có hai kênh vật lý độc lập.
+- Firmware parse payload JSON bằng thao tác chuỗi.
 
-## 2. OOP tren ESP32/Wokwi
+## 3. Backend C#
 
-File: `wokwi/sketch.ino`
+Nguồn: `backend/Program.cs`.
 
-| Class/Thanh phan | Trach nhiem | Diem OOP |
-|---|---|---|
-| `TrafficLight` | Dong goi 3 chan red/yellow/green va ham `show()` | Encapsulation phan dieu khien LED |
-| `RoadApproach` | Dai dien mot huong vao giao lo: NORTH, SOUTH, EAST, WEST | Model hoa tung tuyen duong rieng |
-| `ModeManager` | Quan ly mode, button debounce, serial command | Tach input command khoi logic den |
-| `DisplayManager` | Cap nhat LCD va Serial log | Single Responsibility |
-| `IntersectionController` | Dieu phoi state machine, timer va mode | Composition cac object |
-| `TrafficPhase` | Mo ta phase AUTO gom mau den va duration | Model hoa domain traffic light |
+```mermaid
+classDiagram
+    class TrafficDatabase {
+        +OpenConnectionAsync()
+        +InitializeAsync()
+    }
 
-Ly do co diem cong:
+    class TrafficRepository {
+        +ListPhasePlansAsync()
+        +InsertCommandAsync()
+        +MarkCommandPublishedAsync()
+        +MarkCommandAcknowledgedAsync()
+        +UpsertDeviceStatusAsync()
+    }
 
-- Code thiet bi khong viet theo kieu `loop()` dai va roi rac.
-- Cac class co trach nhiem rieng, de giai thich trong class diagram.
-- State machine nam trong `IntersectionController`, input command nam trong `ModeManager`.
-- Wokwi da nang tu 2 cum NS/EW len 4 cum den NORTH/SOUTH/EAST/WEST de nhin giong nga tu that hon.
+    class TrafficService {
+        +GetStatusAsync()
+        +GetDashboardAsync()
+        +HandleCommandAsync()
+    }
 
-## 3. OOP trong backend C#
+    class ITrafficCommandPublisher {
+        <<interface>>
+        +PublishCommandAsync()
+    }
 
-File: `backend/Program.cs`
+    class MqttTrafficBridge {
+        +PublishCommandAsync()
+        +GetStatus()
+        -HandleStatusAsync()
+        -HandleAckAsync()
+    }
 
-| Class/Record | Vai tro |
+    TrafficRepository --> TrafficDatabase
+    TrafficService --> TrafficRepository
+    TrafficService --> ITrafficCommandPublisher
+    MqttTrafficBridge ..|> ITrafficCommandPublisher
+    MqttTrafficBridge --> TrafficRepository
+```
+
+| Thành phần | Trách nhiệm |
 |---|---|
-| `TrafficDatabase` | Mo ket noi SQLite, init schema, seed du lieu demo |
-| `TrafficRepository` | Doc/ghi du lieu: intersections, roads, phase plans, commands, logs |
-| `TrafficService` | Xu ly nghiep vu: status, dashboard, command, validate duration |
-| `TrafficStatus` | DTO trang thai hien tai cua giao lo |
-| `SignalStatus` | DTO trang thai tung signal head |
-| `DashboardSnapshot` | DTO tong hop cho dashboard PWA |
-| `CommandRequest`, `CreateApproachRequest`, `CreatePhasePlanRequest` | DTO input cho API |
+| `TrafficDatabase` | Connection, schema, seed, compatibility migration |
+| `TrafficRepository` | CRUD và query SQLite |
+| `TrafficService` | Business rule, status, command lifecycle |
+| `ITrafficCommandPublisher` | Hợp đồng publish command |
+| `MqttTrafficBridge` | Background MQTT client và adapter message |
+| `MqttBridgeOptions` | Cấu hình từ environment |
+| DTO `record` | Request/response/message có kiểu rõ ràng |
 
-Nguyen tac OOP/clean code da ap dung:
+### Điểm OOP/clean code đã có
 
-- Tach database access vao repository.
-- Tach business logic vao service.
-- Dung record DTO de mo ta request/response ro rang.
-- Validate command va emergency guard trong service layer.
-- Dung parameterized query cua `Microsoft.Data.Sqlite`, tranh ghep SQL tu input nguoi dung.
+- Dependency injection từ ASP.NET Core.
+- Interface tách `TrafficService` khỏi implementation MQTT cụ thể.
+- Repository tách SQL khỏi phần lớn business rule.
+- DTO record giúp contract rõ ràng.
+- Parameterized SQL cho dữ liệu đầu vào.
 
-## 4. OOP trong PWA/mobile app
+### Giới hạn cần nêu
 
-File: `mobile_app/app.js`
+- Toàn bộ lớp nằm trong một file `Program.cs`.
+- Chưa có domain aggregate hoặc transaction bao trọn cập nhật mode, log và publish.
+- Repository trả nhiều `Dictionary<string, object?>`, làm giảm type safety.
+- Chưa có implementation giả của `ITrafficCommandPublisher` cho unit test.
+- API trả thành công nghiệp vụ dù MQTT publish có thể thất bại.
 
-PWA khong co class theo framework Flutter, nhung da tach module logic theo vai tro:
+## 4. Flutter
 
-| Nhom ham | Vai tro |
+Nguồn: `flutter_app/lib/main.dart`.
+
+| Nhóm class | Vai trò |
 |---|---|
-| `apiGet`, `apiPost`, `apiPut`, `api` | Data access layer goi backend |
-| `loadDashboard`, `loadStatus`, `loadHistory`, `loadRoads`, `loadPhasePlans`, `loadLogs` | Repository/controller logic |
-| `sendCommand`, `savePhaseConfig`, `createRoad`, `toggleRoad` | Use case/action logic |
-| `render`, `renderSignals`, `renderPhasePlan`, `renderModes`, `renderLogs` | Presentation rendering |
-| `normalizeStatus`, `applyActivePlanConfig`, `activePhasePlan` | Domain transformation |
+| `TrafficOperatorApp`, `TrafficHomePage` | App shell và state điều phối |
+| `ApiClient`, `ApiException` | HTTP data access và lỗi |
+| `DashboardSnapshot`, `TrafficStatus`, `SignalStatus` | Snapshot và trạng thái đèn |
+| `Approach`, `PhasePlan`, `PhaseStep` | Model quản lý hướng đường và pha |
+| `CommandEntry`, `TrafficLog` | Model history/log |
+| Các `...View`, `...Card`, `...Tile` | Presentation components |
 
-Diem trinh bay:
+### Điểm OOP đã có
 
-- UI khong tu tinh toan mock state machine nua; no doc state that tu backend.
-- App co cac man hinh/section tuong ung plan: Dashboard, Control, Config, Roads, History, Logs.
-- App co offline state va request timeout de demo khong bi treo khi backend chua chay.
+- Model tự chịu trách nhiệm map JSON qua factory constructor.
+- `ApiClient` đóng gói transport và timeout.
+- Widget composition chia UI thành các phần nhỏ.
+- Callback được truyền qua constructor, giúp giảm phụ thuộc trực tiếp giữa widget con và API.
 
-## 5. Database va mo hinh mo rong
+### Giới hạn cần nêu
 
-File: `backend/schema.sql`
+- State, use case và presentation vẫn tập trung trong một file.
+- Dùng `setState` và polling 1 giây; chưa có state-management/repository riêng.
+- API URL chỉ thay đổi trong phiên chạy hiện tại, chưa persist.
+- Widget test mới kiểm tra app render, chưa kiểm tra command/history/error state.
 
-Bang chinh:
+## 5. Cách trình bày trong báo cáo
 
-- `intersections`: giao lo.
-- `road_approaches`: nhieu tuyen duong trong mot giao lo.
-- `signal_heads`: cum den cua tung tuyen.
-- `traffic_modes`: mode va priority level.
-- `phase_plans`: tap phase co the kich hoat.
-- `phase_steps`: tung buoc trong phase plan.
-- `phase_signal_states`: mau den cua tung signal head trong tung phase.
-- `conflict_rules`: ma tran xung dot.
-- `control_commands`: lich su lenh.
-- `traffic_event_logs`: log trang thai.
+Nên trình bày:
 
-Thiet ke nay tot hon mo hinh chi co `NS` va `EW` vi co the mo rong sang:
+> Dự án áp dụng OOP theo hướng đóng gói thiết bị, phân tách trách nhiệm và composition. Firmware có controller/mode/display/MQTT manager; backend có database/repository/service/MQTT publisher; Flutter có API client, model và widget theo màn hình.
 
-- Nga ba, nga nam.
-- Huong re trai rieng.
-- Nhieu phase plan cho tung thoi diem.
-- Nhieu signal head cho mot road approach.
+Không nên trình bày:
 
-## 6. API da trien khai
+> Dự án đã áp dụng đầy đủ clean architecture, SOLID và production-grade OOP.
 
-| Endpoint | Vai tro |
-|---|---|
-| `GET /api/health` | Kiem tra backend |
-| `GET /api/traffic-modes` | Danh sach mode va priority |
-| `GET /api/intersections` | Danh sach giao lo |
-| `GET /api/intersections/1/dashboard` | Snapshot tong hop cho PWA |
-| `GET /api/intersections/1/status` | Trang thai hien tai |
-| `GET/POST /api/intersections/1/approaches` | Xem/them tuyen duong |
-| `PUT /api/approaches/{id}` | Bat/tat hoac cap nhat tuyen |
-| `GET/POST /api/intersections/1/phase-plans` | Xem/tao phase plan |
-| `PUT /api/phase-plans/{id}` | Cap nhat green/yellow duration |
-| `POST /api/phase-plans/{id}/activate` | Kich hoat phase plan |
-| `GET/POST /api/intersections/1/commands` | Xem/gui command |
-| `GET/POST /api/intersections/1/logs` | Xem/ghi log |
-
-## 7. Luong demo de thuyet trinh
-
-1. Mo Wokwi va chay ESP32.
-2. Nhan button hoac Serial command de cho thay thiet bi co `AUTO`, `NIGHT`, `PRIORITY`, `EMERGENCY`.
-3. Mo backend C# va PWA.
-4. Trong PWA, bam `AUTO/NIGHT/NS/EW/SOS`.
-5. Chi ra command duoc luu vao SQLite va history/log cap nhat.
-6. Sua green/yellow duration trong Config.
-7. Them road approach `NORTH_LEFT` de chung minh data model mo rong.
-8. Mo section `Phase plan`, `Signal heads`, `Mode priority` de giai thich OOP va state machine.
-
-## 8. Test evidence
-
-Lenh build backend:
-
-```powershell
-.\.dotnet\dotnet.exe build backend\TrafficLightMvp.csproj
-```
-
-Ket qua da dat:
-
-```text
-Build succeeded.
-0 Warning(s)
-0 Error(s)
-```
-
-Smoke test:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File backend\smoke-test.ps1
-```
-
-Ket qua da dat:
-
-```text
-Health: ok
-Command result: SET_NIGHT success
-History rows: 2
-Phase plans: 1
-Approaches: 4
-Smoke test completed.
-```
-
-## 9. Noi dung nen dua vao slide
-
-- Slide kien truc 3 lop: PWA -> C# API -> SQLite va ESP32/Wokwi.
-- Slide state machine: AUTO/NIGHT/PRIORITY/EMERGENCY.
-- Slide OOP ESP32: `TrafficLight`, `ModeManager`, `DisplayManager`, `IntersectionController`.
-- Slide OOP backend: `TrafficDatabase`, `TrafficRepository`, `TrafficService`, DTO records.
-- Slide database ERD: intersections, road approaches, signal heads, phase plans, commands, logs.
-- Slide demo: anh PWA dashboard + anh Wokwi + API smoke test.
-
-## 10. Gioi han va huong phat trien
-
-Gioi han hien tai:
-
-- Wokwi va backend chua noi realtime voi nhau.
-- SQLite local tren free hosting co the mat data neu filesystem bi reset.
-- Chua co authentication/role admin/operator.
-
-Huong phat trien:
-
-- Them MQTT: backend publish command, ESP32 subscribe command.
-- ESP32 publish status/log ve backend.
-- Doi SQLite sang Postgres khi deploy production.
-- Them dashboard phan tich luu luong, sensor gia lap va conflict matrix nang cao.
+Mã hiện tại đủ chứng minh tư duy OOP cho bài lớn, nhưng vẫn là cấu trúc MVP cần tách module và bổ sung test nếu phát triển dài hạn.
