@@ -51,4 +51,10 @@ Write-Host "Phase plans:" $phasePlans.data.Count
 $approaches = Invoke-TrafficApi -Method GET -Path "/api/intersections/1/approaches"
 Write-Host "Approaches:" $approaches.data.Count
 
+$devices = Invoke-TrafficApi -Method GET -Path "/api/intersections/1/devices"
+Write-Host "Devices:" $devices.data.Count
+
+$mqtt = Invoke-TrafficApi -Method GET -Path "/api/mqtt/status"
+Write-Host "MQTT enabled:" $mqtt.data.enabled "connected:" $mqtt.data.connected
+
 Write-Host "Smoke test completed."

@@ -34,6 +34,9 @@ Content-Type: application/json
 ### Phase plans
 GET {{baseUrl}}/api/intersections/{{intersectionId}}/phase-plans
 
+### Device statuses
+GET {{baseUrl}}/api/intersections/{{intersectionId}}/devices
+
 ### Update active phase durations
 PUT {{baseUrl}}/api/phase-plans/{{phasePlanId}}
 Content-Type: application/json
@@ -79,6 +82,19 @@ GET {{baseUrl}}/api/intersections/{{intersectionId}}/commands?limit=10
 
 ### Logs
 GET {{baseUrl}}/api/intersections/{{intersectionId}}/logs
+
+### MQTT bridge status
+GET {{baseUrl}}/api/mqtt/status
+
+### MQTT test publish
+POST {{baseUrl}}/api/mqtt/test-command
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "commandId": 0,
+  "command": "SET_NIGHT"
+}
 
 ### Device/backend log insert
 POST {{baseUrl}}/api/intersections/{{intersectionId}}/logs

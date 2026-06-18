@@ -1,6 +1,10 @@
 using System.Data;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Protocol;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +19,10 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<TrafficDatabase>();
+builder.Services.AddSingleton(MqttBridgeOptions.FromEnvironment());
+builder.Services.AddSingleton<MqttTrafficBridge>();
+builder.Services.AddSingleton<ITrafficCommandPublisher>(provider => provider.GetRequiredService<MqttTrafficBridge>());
+builder.Services.AddHostedService(provider => provider.GetRequiredService<MqttTrafficBridge>());
 builder.Services.AddScoped<TrafficRepository>();
 builder.Services.AddScoped<TrafficService>();
 
@@ -103,6 +111,16 @@ app.MapGet("/api/intersections/{id:int}/phase-plans", async Task<IResult> (int i
     return Results.Ok(new { data = await repository.ListPhasePlansAsync(id) });
 });
 
+app.MapGet("/api/intersections/{id:int}/devices", async Task<IResult> (int id, TrafficRepository repository) =>
+{
+    if (!await repository.IntersectionExistsAsync(id))
+    {
+        return Results.NotFound(Error("Intersection not found"));
+    }
+
+    return Results.Ok(new { data = await repository.ListDeviceStatusesAsync(id) });
+});
+
 app.MapPost("/api/intersections/{id:int}/phase-plans", async Task<IResult> (int id, CreatePhasePlanRequest request, TrafficService service) =>
 {
     try
@@ -186,21 +204,321 @@ app.MapPost("/api/intersections/{id:int}/logs", async Task<IResult> (int id, Cre
     }
 });
 
+app.MapGet("/api/mqtt/status", (MqttTrafficBridge bridge) =>
+{
+    return Results.Ok(new { data = bridge.GetStatus() });
+});
+
+app.MapPost("/api/mqtt/test-command", async Task<IResult> (MqttTestCommandRequest request, ITrafficCommandPublisher publisher) =>
+{
+    var command = string.IsNullOrWhiteSpace(request.Command) ? "SET_AUTO" : request.Command.Trim().ToUpperInvariant();
+    var modeCode = command.StartsWith("SET_", StringComparison.Ordinal) ? command[4..] : command;
+    var message = new MqttCommandMessage(
+        request.CommandId,
+        request.IntersectionId,
+        command,
+        modeCode,
+        "api-test",
+        "operator",
+        DateTimeOffset.UtcNow);
+    var result = await publisher.PublishCommandAsync(message);
+    return result.Published ? Results.Ok(new { data = result }) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+});
+
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8000";
 app.Run($"http://0.0.0.0:{port}");
 
 static object Error(string message) => new { error = new { message } };
+
+public interface ITrafficCommandPublisher
+{
+    Task<MqttPublishResult> PublishCommandAsync(MqttCommandMessage command, CancellationToken cancellationToken = default);
+}
+
+public sealed class MqttTrafficBridge(
+    MqttBridgeOptions options,
+    IServiceScopeFactory scopeFactory,
+    ILogger<MqttTrafficBridge> logger) : BackgroundService, ITrafficCommandPublisher
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = false
+    };
+
+    private readonly IMqttClient client = new MqttFactory().CreateMqttClient();
+    private readonly SemaphoreSlim connectLock = new(1, 1);
+    private DateTimeOffset? lastConnectedAt;
+    private DateTimeOffset? lastMessageAt;
+    private string lastError = "";
+
+    public object GetStatus()
+    {
+        return new
+        {
+            options.Enabled,
+            Connected = client.IsConnected,
+            options.Host,
+            options.Port,
+            options.TopicPrefix,
+            LastConnectedAt = lastConnectedAt,
+            LastMessageAt = lastMessageAt,
+            LastError = lastError
+        };
+    }
+
+    public async Task<MqttPublishResult> PublishCommandAsync(MqttCommandMessage command, CancellationToken cancellationToken = default)
+    {
+        if (!options.Enabled)
+        {
+            return MqttPublishResult.Failed("MQTT bridge is disabled");
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+
+        var topic = options.CommandTopic(command.IntersectionId);
+        var payload = JsonSerializer.Serialize(command, JsonOptions);
+
+        try
+        {
+            if (!await EnsureConnectedAsync(timeout.Token))
+            {
+                return MqttPublishResult.Failed(string.IsNullOrWhiteSpace(lastError) ? "MQTT broker is not connected" : lastError);
+            }
+
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(payload)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+
+            await client.PublishAsync(message, timeout.Token);
+            return MqttPublishResult.Success(topic, payload);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            lastError = "MQTT operation timed out";
+            logger.LogWarning("MQTT publish timed out for {Topic}", topic);
+            return MqttPublishResult.Failed(lastError, topic, payload);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            lastError = ex.Message;
+            logger.LogWarning(ex, "Failed to publish MQTT command");
+            return MqttPublishResult.Failed(ex.Message, topic, payload);
+        }
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!options.Enabled)
+        {
+            logger.LogInformation("MQTT bridge is disabled");
+            return;
+        }
+
+        client.ApplicationMessageReceivedAsync += HandleMessageAsync;
+        client.DisconnectedAsync += args =>
+        {
+            lastError = args.Exception?.Message ?? "Disconnected";
+            logger.LogWarning(args.Exception, "MQTT bridge disconnected");
+            return Task.CompletedTask;
+        };
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await EnsureConnectedAsync(stoppingToken);
+            await Task.Delay(TimeSpan.FromSeconds(client.IsConnected ? 20 : 5), stoppingToken);
+        }
+    }
+
+    private async Task<bool> EnsureConnectedAsync(CancellationToken cancellationToken)
+    {
+        if (client.IsConnected)
+        {
+            return true;
+        }
+
+        await connectLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (client.IsConnected)
+            {
+                return true;
+            }
+
+            var builder = new MqttClientOptionsBuilder()
+                .WithClientId(options.ClientId)
+                .WithTcpServer(options.Host, options.Port)
+                .WithCleanSession();
+
+            if (!string.IsNullOrWhiteSpace(options.Username))
+            {
+                builder.WithCredentials(options.Username, options.Password);
+            }
+
+            await client.ConnectAsync(builder.Build(), cancellationToken);
+            lastConnectedAt = DateTimeOffset.UtcNow;
+            lastError = "";
+
+            var subscribeOptions = new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(filter => filter
+                    .WithTopic(options.StatusTopicFilter)
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
+                .WithTopicFilter(filter => filter
+                    .WithTopic(options.AckTopicFilter)
+                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce))
+                .Build();
+
+            await client.SubscribeAsync(subscribeOptions, cancellationToken);
+            logger.LogInformation("MQTT bridge connected to {Host}:{Port}", options.Host, options.Port);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            lastError = ex.Message;
+            logger.LogWarning(ex, "MQTT bridge connection failed");
+            return false;
+        }
+        finally
+        {
+            connectLock.Release();
+        }
+    }
+
+    private async Task HandleMessageAsync(MqttApplicationMessageReceivedEventArgs args)
+    {
+        var topic = args.ApplicationMessage.Topic;
+        var segment = args.ApplicationMessage.PayloadSegment;
+        var payload = segment.Array is null ? "" : Encoding.UTF8.GetString(segment.Array, segment.Offset, segment.Count);
+        lastMessageAt = DateTimeOffset.UtcNow;
+
+        try
+        {
+            if (topic.EndsWith("/status", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleStatusAsync(topic, payload);
+                return;
+            }
+
+            if (topic.EndsWith("/acks", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleAckAsync(topic, payload);
+            }
+        }
+        catch (Exception ex)
+        {
+            lastError = ex.Message;
+            logger.LogWarning(ex, "Failed to process MQTT message on {Topic}", topic);
+        }
+    }
+
+    private async Task HandleStatusAsync(string topic, string payload)
+    {
+        var status = JsonSerializer.Deserialize<MqttStatusMessage>(payload, JsonOptions);
+        if (status is null)
+        {
+            return;
+        }
+
+        if (status.IntersectionId <= 0)
+        {
+            status = status with { IntersectionId = ExtractIntersectionId(topic) };
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<TrafficRepository>();
+        await repository.UpsertDeviceStatusAsync(status, payload);
+        await repository.InsertMqttStatusLogAsync(status, payload);
+    }
+
+    private async Task HandleAckAsync(string topic, string payload)
+    {
+        var ack = JsonSerializer.Deserialize<MqttAckMessage>(payload, JsonOptions);
+        if (ack is null)
+        {
+            return;
+        }
+
+        if (ack.IntersectionId <= 0)
+        {
+            ack = ack with { IntersectionId = ExtractIntersectionId(topic) };
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<TrafficRepository>();
+        await repository.MarkCommandAcknowledgedAsync(ack);
+    }
+
+    private static int ExtractIntersectionId(string topic)
+    {
+        var parts = topic.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        for (var index = 0; index < parts.Length - 1; index++)
+        {
+            if (string.Equals(parts[index], "intersections", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(parts[index + 1], out var id))
+            {
+                return id;
+            }
+        }
+
+        return 1;
+    }
+}
+
+public sealed record MqttBridgeOptions(
+    bool Enabled,
+    string Host,
+    int Port,
+    string ClientId,
+    string TopicPrefix,
+    string? Username,
+    string? Password)
+{
+    public string StatusTopicFilter => $"{TopicPrefix}/intersections/+/status";
+    public string AckTopicFilter => $"{TopicPrefix}/intersections/+/acks";
+
+    public string CommandTopic(int intersectionId) => $"{TopicPrefix}/intersections/{intersectionId}/commands";
+
+    public static MqttBridgeOptions FromEnvironment()
+    {
+        var topicPrefix = Env("MQTT_TOPIC_PREFIX", "traffic/hainx-iot-traffic-light").Trim('/');
+        return new MqttBridgeOptions(
+            Enabled: Env("MQTT_ENABLED", "true").Equals("true", StringComparison.OrdinalIgnoreCase),
+            Host: Env("MQTT_HOST", "broker.hivemq.com"),
+            Port: int.TryParse(Env("MQTT_PORT", "1883"), out var port) ? port : 1883,
+            ClientId: Env("MQTT_CLIENT_ID", $"traffic-backend-{Guid.NewGuid():N}"[..30]),
+            TopicPrefix: topicPrefix,
+            Username: Environment.GetEnvironmentVariable("MQTT_USERNAME"),
+            Password: Environment.GetEnvironmentVariable("MQTT_PASSWORD"));
+    }
+
+    private static string Env(string name, string fallback) => Environment.GetEnvironmentVariable(name) ?? fallback;
+}
+
+public sealed record MqttPublishResult(bool Published, string Message, string Topic = "", string Payload = "")
+{
+    public static MqttPublishResult Success(string topic, string payload) => new(true, "published", topic, payload);
+    public static MqttPublishResult Failed(string message, string topic = "", string payload = "") => new(false, message, topic, payload);
+}
 
 public sealed class TrafficDatabase
 {
     private readonly string connectionString;
     private readonly string schemaPath;
 
-    public TrafficDatabase(IWebHostEnvironment environment)
+    public TrafficDatabase(IWebHostEnvironment environment, IConfiguration configuration)
     {
         var basePath = environment.ContentRootPath;
-        var dbPath = Path.Combine(basePath, "traffic.db");
-        schemaPath = Path.Combine(basePath, "schema.sql");
+        var configuredDatabasePath = configuration["TrafficDatabase:Path"]
+            ?? Environment.GetEnvironmentVariable("TRAFFIC_DB_PATH");
+        var configuredSchemaPath = configuration["TrafficDatabase:SchemaPath"]
+            ?? Environment.GetEnvironmentVariable("TRAFFIC_SCHEMA_PATH");
+
+        var dbPath = ResolvePath(basePath, configuredDatabasePath, "traffic.db");
+        schemaPath = ResolvePath(basePath, configuredSchemaPath, "schema.sql");
+        Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
         connectionString = new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString();
         DatabaseFileName = Path.GetFileName(dbPath);
     }
@@ -220,6 +538,7 @@ public sealed class TrafficDatabase
         await using var connection = await OpenConnectionAsync();
         var schema = await File.ReadAllTextAsync(schemaPath);
         await ExecuteAsync(connection, schema);
+        await EnsureCompatibilityAsync(connection);
 
         var count = Convert.ToInt32(await ScalarAsync(connection, "SELECT COUNT(*) FROM intersections"));
         if (count > 0)
@@ -342,6 +661,32 @@ public sealed class TrafficDatabase
         transaction.Commit();
     }
 
+    private static async Task EnsureCompatibilityAsync(SqliteConnection connection)
+    {
+        await AddColumnIfMissingAsync(connection, "control_commands", "device_status", "TEXT NOT NULL DEFAULT 'queued'");
+        await AddColumnIfMissingAsync(connection, "control_commands", "device_message", "TEXT NOT NULL DEFAULT ''");
+        await AddColumnIfMissingAsync(connection, "control_commands", "mqtt_topic", "TEXT NOT NULL DEFAULT ''");
+        await AddColumnIfMissingAsync(connection, "control_commands", "mqtt_payload", "TEXT NOT NULL DEFAULT ''");
+        await AddColumnIfMissingAsync(connection, "control_commands", "published_at", "TEXT");
+        await AddColumnIfMissingAsync(connection, "control_commands", "acknowledged_at", "TEXT");
+    }
+
+    private static async Task AddColumnIfMissingAsync(SqliteConnection connection, string tableName, string columnName, string definition)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName})";
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            if (string.Equals(Convert.ToString(reader["name"]), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        await ExecuteAsync(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition}");
+    }
+
     public static async Task ExecuteAsync(SqliteConnection connection, string sql, SqliteTransaction? transaction = null, params (string Name, object? Value)[] parameters)
     {
         await using var command = connection.CreateCommand();
@@ -364,6 +709,12 @@ public sealed class TrafficDatabase
             command.Parameters.AddWithValue(parameter.Name, parameter.Value ?? DBNull.Value);
         }
         return await command.ExecuteScalarAsync();
+    }
+
+    private static string ResolvePath(string basePath, string? configuredPath, string fallbackFileName)
+    {
+        var path = string.IsNullOrWhiteSpace(configuredPath) ? fallbackFileName : configuredPath.Trim();
+        return Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(basePath, path));
     }
 }
 
@@ -614,7 +965,7 @@ public sealed class TrafficRepository(TrafficDatabase database)
     public async Task<List<Dictionary<string, object?>>> PhaseSignalStatesAsync(int phaseStepId)
     {
         await using var connection = await database.OpenConnectionAsync();
-        return await PhaseSignalStatesAsync(connection, phaseStepId);
+        return await PhaseSignalStatesAsync(connection, phaseStepId, activeOnly: true);
     }
 
     public async Task<List<Dictionary<string, object?>>> ListCommandsAsync(int intersectionId, int limit)
@@ -639,6 +990,16 @@ public sealed class TrafficRepository(TrafficDatabase database)
             """, null, ("$intersectionId", intersectionId), ("$limit", limit));
     }
 
+    public async Task<List<Dictionary<string, object?>>> ListDeviceStatusesAsync(int intersectionId)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+        return await QueryAsync(connection, """
+            SELECT * FROM device_statuses
+            WHERE intersection_id = $intersectionId
+            ORDER BY updated_at DESC, id DESC
+            """, null, ("$intersectionId", intersectionId));
+    }
+
     public async Task<Dictionary<string, object?>> CreateLogAsync(int intersectionId, CreateLogRequest request)
     {
         var modeCode = NormalizeCode(request.ModeCode);
@@ -661,13 +1022,98 @@ public sealed class TrafficRepository(TrafficDatabase database)
         return rows.Single();
     }
 
-    public async Task InsertCommandAsync(int intersectionId, string modeCode, string command, string source, string createdBy, string status, string message)
+    public async Task<int> InsertCommandAsync(int intersectionId, string modeCode, string command, string source, string createdBy, string status, string message, string deviceStatus = "queued")
+    {
+        await using var connection = await database.OpenConnectionAsync();
+        return Convert.ToInt32(await TrafficDatabase.ScalarAsync(connection, """
+            INSERT INTO control_commands(intersection_id, mode_code, command, source, created_by, status, message, device_status)
+            VALUES ($intersectionId, $modeCode, $command, $source, $createdBy, $status, $message, $deviceStatus)
+            RETURNING id
+            """, null, ("$intersectionId", intersectionId), ("$modeCode", modeCode), ("$command", command), ("$source", source), ("$createdBy", createdBy), ("$status", status), ("$message", message), ("$deviceStatus", deviceStatus)));
+    }
+
+    public async Task MarkCommandPublishedAsync(int commandId, string topic, string payload)
     {
         await using var connection = await database.OpenConnectionAsync();
         await TrafficDatabase.ExecuteAsync(connection, """
-            INSERT INTO control_commands(intersection_id, mode_code, command, source, created_by, status, message)
-            VALUES ($intersectionId, $modeCode, $command, $source, $createdBy, $status, $message)
-            """, null, ("$intersectionId", intersectionId), ("$modeCode", modeCode), ("$command", command), ("$source", source), ("$createdBy", createdBy), ("$status", status), ("$message", message));
+            UPDATE control_commands
+            SET device_status = 'published',
+                device_message = 'Published to MQTT broker',
+                mqtt_topic = $topic,
+                mqtt_payload = $payload,
+                published_at = CURRENT_TIMESTAMP
+            WHERE id = $id
+            """, null, ("$id", commandId), ("$topic", topic), ("$payload", payload));
+    }
+
+    public async Task MarkCommandPublishFailedAsync(int commandId, string message)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+        await TrafficDatabase.ExecuteAsync(connection, """
+            UPDATE control_commands
+            SET device_status = 'publish_failed',
+                device_message = $message
+            WHERE id = $id
+            """, null, ("$id", commandId), ("$message", message));
+    }
+
+    public async Task MarkCommandAcknowledgedAsync(MqttAckMessage ack)
+    {
+        if (ack.CommandId <= 0)
+        {
+            return;
+        }
+
+        await using var connection = await database.OpenConnectionAsync();
+        await TrafficDatabase.ExecuteAsync(connection, """
+            UPDATE control_commands
+            SET device_status = $status,
+                device_message = $message,
+                acknowledged_at = CURRENT_TIMESTAMP
+            WHERE id = $id AND intersection_id = $intersectionId
+            """, null,
+            ("$id", ack.CommandId),
+            ("$intersectionId", ack.IntersectionId),
+            ("$status", string.IsNullOrWhiteSpace(ack.Status) ? "acknowledged" : ack.Status),
+            ("$message", ack.Message ?? "Device acknowledged command"));
+    }
+
+    public async Task UpsertDeviceStatusAsync(MqttStatusMessage status, string payload)
+    {
+        var deviceId = string.IsNullOrWhiteSpace(status.DeviceId) ? "wokwi-esp32-01" : status.DeviceId;
+        await using var connection = await database.OpenConnectionAsync();
+        await TrafficDatabase.ExecuteAsync(connection, """
+            INSERT INTO device_statuses(intersection_id, device_id, connection_state, last_mode_code, last_phase_code, last_remaining_seconds, last_status_json, last_seen_at)
+            VALUES ($intersectionId, $deviceId, 'online', $modeCode, $phaseCode, $remainingSeconds, $payload, CURRENT_TIMESTAMP)
+            ON CONFLICT(intersection_id, device_id) DO UPDATE SET
+                connection_state = 'online',
+                last_mode_code = excluded.last_mode_code,
+                last_phase_code = excluded.last_phase_code,
+                last_remaining_seconds = excluded.last_remaining_seconds,
+                last_status_json = excluded.last_status_json,
+                last_seen_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            """, null,
+            ("$intersectionId", status.IntersectionId),
+            ("$deviceId", deviceId),
+            ("$modeCode", status.ModeCode ?? "AUTO"),
+            ("$phaseCode", status.PhaseCode ?? ""),
+            ("$remainingSeconds", status.RemainingSeconds),
+            ("$payload", payload));
+    }
+
+    public async Task InsertMqttStatusLogAsync(MqttStatusMessage status, string payload)
+    {
+        await using var connection = await database.OpenConnectionAsync();
+        await TrafficDatabase.ExecuteAsync(connection, """
+            INSERT INTO traffic_event_logs(intersection_id, mode_code, phase_code, remaining_seconds, status_json)
+            VALUES ($intersectionId, $modeCode, $phaseCode, $remainingSeconds, $payload)
+            """, null,
+            ("$intersectionId", status.IntersectionId),
+            ("$modeCode", status.ModeCode ?? "AUTO"),
+            ("$phaseCode", status.PhaseCode ?? ""),
+            ("$remainingSeconds", status.RemainingSeconds),
+            ("$payload", payload));
     }
 
     public async Task SetCurrentModeAsync(int intersectionId, string modeCode)
@@ -689,7 +1135,10 @@ public sealed class TrafficRepository(TrafficDatabase database)
             """, null, ("$intersectionId", intersectionId), ("$modeCode", status.ModeCode), ("$phaseCode", status.PhaseCode), ("$remainingSeconds", status.RemainingSeconds), ("$statusJson", JsonSerializer.Serialize(status)));
     }
 
-    private static async Task<List<Dictionary<string, object?>>> PhaseSignalStatesAsync(SqliteConnection connection, int phaseStepId)
+    private static async Task<List<Dictionary<string, object?>>> PhaseSignalStatesAsync(
+        SqliteConnection connection,
+        int phaseStepId,
+        bool activeOnly = false)
     {
         return await QueryAsync(connection, """
             SELECT
@@ -700,8 +1149,9 @@ public sealed class TrafficRepository(TrafficDatabase database)
             JOIN signal_heads sh ON sh.id = pss.signal_head_id
             JOIN road_approaches ra ON ra.id = sh.road_approach_id
             WHERE pss.phase_step_id = $phaseStepId
+              AND ($activeOnly = 0 OR (ra.is_active = 1 AND sh.is_active = 1))
             ORDER BY ra.display_order ASC
-            """, null, ("$phaseStepId", phaseStepId));
+            """, null, ("$phaseStepId", phaseStepId), ("$activeOnly", activeOnly ? 1 : 0));
     }
 
     private static async Task<List<Dictionary<string, object?>>> ValidatePhaseConflictsAsync(SqliteConnection connection, int phaseStepId)
@@ -769,7 +1219,7 @@ public sealed class TrafficRepository(TrafficDatabase database)
     }
 }
 
-public sealed class TrafficService(TrafficRepository repository)
+public sealed class TrafficService(TrafficRepository repository, ITrafficCommandPublisher commandPublisher)
 {
     private static readonly IReadOnlyDictionary<string, string> ValidCommands = new Dictionary<string, string>
     {
@@ -804,8 +1254,9 @@ public sealed class TrafficService(TrafficRepository repository)
         var commands = await repository.ListCommandsAsync(intersectionId, 10);
         var logs = await repository.ListLogsAsync(intersectionId, 10);
         var modes = await repository.ListTrafficModesAsync();
+        var deviceStatuses = await repository.ListDeviceStatusesAsync(intersectionId);
 
-        return new DashboardSnapshot(status, approaches, phasePlans, commands, logs, modes);
+        return new DashboardSnapshot(status, approaches, phasePlans, commands, logs, modes, deviceStatuses);
     }
 
     public async Task<CommandResult?> HandleCommandAsync(int intersectionId, CommandRequest request)
@@ -819,21 +1270,47 @@ public sealed class TrafficService(TrafficRepository repository)
         var command = NormalizeCommand(request.Command, request.ModeCode);
         if (!ValidCommands.TryGetValue(command, out var modeCode))
         {
-            await repository.InsertCommandAsync(intersectionId, "AUTO", string.IsNullOrWhiteSpace(command) ? "UNKNOWN" : command, request.SourceOrDefault(), request.CreatedByOrDefault(), "rejected", "Unsupported command");
+            await repository.InsertCommandAsync(intersectionId, "AUTO", string.IsNullOrWhiteSpace(command) ? "UNKNOWN" : command, request.SourceOrDefault(), request.CreatedByOrDefault(), "rejected", "Unsupported command", "not_sent");
             throw new ArgumentException("Unsupported command");
         }
 
         if (intersection.CurrentModeCode == "EMERGENCY" && command is not ("SET_AUTO" or "SET_NIGHT" or "SET_EMERGENCY"))
         {
-            await repository.InsertCommandAsync(intersectionId, modeCode, command, request.SourceOrDefault(), request.CreatedByOrDefault(), "rejected", "Emergency mode only allows SET_AUTO, SET_NIGHT, or SET_EMERGENCY");
+            await repository.InsertCommandAsync(intersectionId, modeCode, command, request.SourceOrDefault(), request.CreatedByOrDefault(), "rejected", "Emergency mode only allows SET_AUTO, SET_NIGHT, or SET_EMERGENCY", "not_sent");
             throw new ArgumentException("Command rejected while emergency mode is active");
         }
 
-        await repository.InsertCommandAsync(intersectionId, modeCode, command, request.SourceOrDefault(), request.CreatedByOrDefault(), "success", "Command accepted");
+        var commandId = await repository.InsertCommandAsync(intersectionId, modeCode, command, request.SourceOrDefault(), request.CreatedByOrDefault(), "success", "Command accepted", "queued");
         await repository.SetCurrentModeAsync(intersectionId, modeCode);
 
         var status = await StatusForModeAsync(intersectionId, modeCode);
         await repository.InsertLogAsync(intersectionId, status);
+
+        MqttPublishResult publish;
+        try
+        {
+            publish = await commandPublisher.PublishCommandAsync(new MqttCommandMessage(
+                commandId,
+                intersectionId,
+                command,
+                modeCode,
+                request.SourceOrDefault(),
+                request.CreatedByOrDefault(),
+                DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            publish = MqttPublishResult.Failed(ex is OperationCanceledException ? "MQTT operation timed out" : ex.Message);
+        }
+
+        if (publish.Published)
+        {
+            await repository.MarkCommandPublishedAsync(commandId, publish.Topic, publish.Payload);
+        }
+        else
+        {
+            await repository.MarkCommandPublishFailedAsync(commandId, publish.Message);
+        }
 
         return new CommandResult(command, "success", status);
     }
@@ -978,7 +1455,8 @@ public sealed record DashboardSnapshot(
     List<Dictionary<string, object?>> PhasePlans,
     List<Dictionary<string, object?>> Commands,
     List<Dictionary<string, object?>> Logs,
-    List<Dictionary<string, object?>> Modes);
+    List<Dictionary<string, object?>> Modes,
+    List<Dictionary<string, object?>> DeviceStatuses);
 public sealed record TrafficStatus(string ModeCode, string PhaseCode, int RemainingSeconds, List<SignalStatus> Signals);
 public sealed record SignalStatus(string Approach, string Signal, string Color);
 public sealed record CreateApproachRequest(string? Code = null, string? Name = null, int? DisplayOrder = null, bool IsActive = true, int? RedPin = null, int? YellowPin = null, int? GreenPin = null);
@@ -987,3 +1465,32 @@ public sealed record UpdatePhasePlanRequest(int GreenSeconds, int YellowSeconds)
 public sealed record CreatePhasePlanRequest(string? Name = null, int GreenSeconds = 8, int YellowSeconds = 3, bool Activate = false);
 public sealed record CreateLogRequest(string? ModeCode = null, string? PhaseCode = null, int RemainingSeconds = -1, string? StatusJson = null);
 public sealed record PhaseSeed(string Code, int SequenceNo, int DurationSeconds, Dictionary<string, string> SignalStates);
+public sealed record MqttTestCommandRequest(int IntersectionId = 1, int CommandId = 0, string Command = "SET_AUTO");
+public sealed record MqttCommandMessage(
+    int CommandId,
+    int IntersectionId,
+    string Command,
+    string ModeCode,
+    string Source,
+    string CreatedBy,
+    DateTimeOffset CreatedAt);
+public sealed record MqttStatusMessage(
+    int IntersectionId = 1,
+    string? DeviceId = "wokwi-esp32-01",
+    string? ModeCode = "AUTO",
+    string? PhaseCode = "",
+    int RemainingSeconds = -1,
+    List<SignalStatus>? Signals = null,
+    DateTimeOffset? CreatedAt = null);
+public sealed record MqttAckMessage(
+    int IntersectionId = 1,
+    string? DeviceId = "wokwi-esp32-01",
+    int CommandId = 0,
+    string? Command = "",
+    string? Status = "acknowledged",
+    string? Message = "",
+    DateTimeOffset? CreatedAt = null);
+
+public partial class Program
+{
+}

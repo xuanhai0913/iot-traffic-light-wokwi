@@ -7,5 +7,16 @@ backend/*.db-journal
 backend/__pycache__/
 backend/bin/
 backend/obj/
+**/bin/
+**/obj/
+**/TestResults/
 .dotnet/
+.flutter/
+.android-toolchain/
+.playwright-mcp/
+dist/
+flutter_app/.dart_tool/
+flutter_app/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
 

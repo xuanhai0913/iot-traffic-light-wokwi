@@ -102,9 +102,31 @@ CREATE TABLE IF NOT EXISTS control_commands (
   created_by TEXT NOT NULL DEFAULT 'operator',
   status TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success', 'rejected')),
   message TEXT NOT NULL DEFAULT '',
+  device_status TEXT NOT NULL DEFAULT 'queued',
+  device_message TEXT NOT NULL DEFAULT '',
+  mqtt_topic TEXT NOT NULL DEFAULT '',
+  mqtt_payload TEXT NOT NULL DEFAULT '',
+  published_at TEXT,
+  acknowledged_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (intersection_id) REFERENCES intersections(id) ON DELETE CASCADE,
   FOREIGN KEY (mode_code) REFERENCES traffic_modes(code)
+);
+
+CREATE TABLE IF NOT EXISTS device_statuses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  intersection_id INTEGER NOT NULL,
+  device_id TEXT NOT NULL,
+  connection_state TEXT NOT NULL DEFAULT 'offline',
+  last_mode_code TEXT NOT NULL DEFAULT 'AUTO',
+  last_phase_code TEXT NOT NULL DEFAULT '',
+  last_remaining_seconds INTEGER NOT NULL DEFAULT -1,
+  last_status_json TEXT NOT NULL DEFAULT '{}',
+  last_seen_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (intersection_id, device_id),
+  FOREIGN KEY (intersection_id) REFERENCES intersections(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS traffic_event_logs (
@@ -126,4 +148,5 @@ CREATE INDEX IF NOT EXISTS idx_phase_steps_plan_sequence ON phase_steps(phase_pl
 CREATE INDEX IF NOT EXISTS idx_phase_signal_states_step ON phase_signal_states(phase_step_id);
 CREATE INDEX IF NOT EXISTS idx_conflict_rules_intersection ON conflict_rules(intersection_id);
 CREATE INDEX IF NOT EXISTS idx_control_commands_intersection_created ON control_commands(intersection_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_statuses_intersection ON device_statuses(intersection_id);
 CREATE INDEX IF NOT EXISTS idx_traffic_event_logs_intersection_created ON traffic_event_logs(intersection_id, created_at DESC);
