@@ -97,8 +97,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - Backend smoke test passes against `http://127.0.0.1:8000`.
 - MQTT bridge connected successfully to `broker.hivemq.com:1883` during local verification.
 - Portable Flutter 3.44.2 and Android SDK 36 are installed in ignored workspace folders.
-- `flutter analyze` passes with no issues.
-- Flutter widget tests pass.
+- `flutter analyze` passes with no issues. Re-verified on 2026-06-18 via `scripts/verify-flutter.ps1` ("No issues found! (ran in 11.1s)").
+- Flutter widget tests pass. Re-verified on 2026-06-18 via `scripts/verify-flutter.ps1` ("All tests passed!" for `renders traffic operator app`).
+- `scripts/verify-flutter.ps1` automates the T: subst, stale build cleanup, `flutter analyze`, and `flutter test` against the Flutter operator app.
 - Flutter Web release build passes.
 - Android release build passes and produces `dist/android/iot-traffic-light-v1.0.0.apk`.
 - Flutter Manage screen was browser-verified on desktop and mobile. Phase-plan save and road enable/disable call the real backend API.
