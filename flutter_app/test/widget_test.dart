@@ -38,6 +38,35 @@ void main() {
         greaterThan(SnackKind.success.durationSeconds));
   });
 
+  testWidgets(
+      'ControlView only disables the button whose action is in flight',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const TrafficOperatorApp());
+    await tester.pump();
+
+    // The bootstrap network call eventually sets online=false so the
+    // dashboard shows the default mode (AUTO) on the ControlView.
+    await tester.tap(find.text('Control'));
+    await tester.pump();
+
+    // All five command buttons render with their labels.
+    expect(find.widgetWithText(FilledButton, 'AUTO'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'NIGHT'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'PRIORITY NS'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'PRIORITY EW'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'EMERGENCY'), findsOneWidget);
+
+    // Before any tap, no per-button progress indicators should be present.
+    expect(
+      find.descendant(
+        of: find.widgetWithText(FilledButton, 'AUTO'),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+  });
+
   group('SettingsStore', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});

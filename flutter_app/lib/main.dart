@@ -65,9 +65,22 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   Timer? pollTimer;
 
   DashboardSnapshot dashboard = DashboardSnapshot.empty();
-  bool loading = false;
+  final Set<String> _runningActions = <String>{};
   bool online = false;
   String selectedPage = 'dashboard';
+
+  bool isRunning(String key) => _runningActions.contains(key);
+  bool get anyLoading => _runningActions.isNotEmpty;
+
+  void _setRunning(String key, bool value) {
+    setState(() {
+      if (value) {
+        _runningActions.add(key);
+      } else {
+        _runningActions.remove(key);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -103,13 +116,11 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   }
 
   Future<void> refreshDashboard({bool force = false}) async {
-    if (loading && !force) {
+    if (isRunning('refresh') && !force) {
       return;
     }
 
-    setState(() {
-      loading = true;
-    });
+    _setRunning('refresh', true);
 
     try {
       final data = await api.getJson('/api/intersections/1/dashboard');
@@ -129,15 +140,18 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          loading = false;
-        });
+        _setRunning('refresh', false);
       }
     }
   }
 
   Future<void> refreshStatusOnly() async {
-    if (!online || loading) {
+    if (!online) {
+      return;
+    }
+    // Skip the silent poll while any user-initiated action is running so
+    // we do not pile up parallel GET /status calls.
+    if (anyLoading) {
       return;
     }
 
@@ -159,9 +173,11 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   }
 
   Future<void> sendCommand(String modeCode) async {
-    setState(() {
-      loading = true;
-    });
+    final key = 'cmd:$modeCode';
+    if (isRunning(key)) {
+      return;
+    }
+    _setRunning(key, true);
 
     try {
       final data = await api.postJson('/api/intersections/1/commands', {
@@ -173,6 +189,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
       final result = data['data'] as Map<String, dynamic>;
       await refreshDashboard(force: true);
+      if (!mounted) return;
       setState(() {
         online = true;
       });
@@ -181,18 +198,18 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       _showSnack(SnackKind.error, error.toString());
     } finally {
       if (mounted) {
-        setState(() {
-          loading = false;
-        });
+        _setRunning(key, false);
       }
     }
   }
 
   Future<void> updatePhasePlan(
       PhasePlan plan, int greenSeconds, int yellowSeconds) async {
-    setState(() {
-      loading = true;
-    });
+    final key = 'plan:update:${plan.id}';
+    if (isRunning(key)) {
+      return;
+    }
+    _setRunning(key, true);
 
     try {
       await api.putJson('/api/phase-plans/${plan.id}', {
@@ -200,6 +217,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         'yellowSeconds': yellowSeconds,
       });
       await refreshDashboard(force: true);
+      if (!mounted) return;
       setState(() {
         online = true;
       });
@@ -208,21 +226,22 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       _showSnack(SnackKind.error, error.toString());
     } finally {
       if (mounted) {
-        setState(() {
-          loading = false;
-        });
+        _setRunning(key, false);
       }
     }
   }
 
   Future<void> activatePhasePlan(PhasePlan plan) async {
-    setState(() {
-      loading = true;
-    });
+    final key = 'plan:activate:${plan.id}';
+    if (isRunning(key)) {
+      return;
+    }
+    _setRunning(key, true);
 
     try {
       await api.postJson('/api/phase-plans/${plan.id}/activate', {});
       await refreshDashboard(force: true);
+      if (!mounted) return;
       setState(() {
         online = true;
       });
@@ -231,17 +250,17 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       _showSnack(SnackKind.error, error.toString());
     } finally {
       if (mounted) {
-        setState(() {
-          loading = false;
-        });
+        _setRunning(key, false);
       }
     }
   }
 
   Future<void> updateApproach(Approach approach, bool isActive) async {
-    setState(() {
-      loading = true;
-    });
+    final key = 'approach:${approach.id}';
+    if (isRunning(key)) {
+      return;
+    }
+    _setRunning(key, true);
 
     try {
       await api.putJson('/api/approaches/${approach.id}', {
@@ -250,6 +269,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         'isActive': isActive,
       });
       await refreshDashboard(force: true);
+      if (!mounted) return;
       setState(() {
         online = true;
       });
@@ -261,39 +281,49 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       _showSnack(SnackKind.error, error.toString());
     } finally {
       if (mounted) {
-        setState(() {
-          loading = false;
-        });
+        _setRunning(key, false);
       }
     }
   }
 
   Future<void> applyApiBase() async {
-    final value = apiController.text.trim().replaceAll(RegExp(r'/+$'), '');
-    if (value.isEmpty) {
-      _showSnack(SnackKind.error, 'API URL khong duoc de trong');
+    if (isRunning('apply-url')) {
       return;
     }
+    _setRunning('apply-url', true);
 
-    setState(() {
-      api = ApiClient(value);
-      online = false;
-    });
-
-    // Persist for next launch so the operator does not have to
-    // re-enter the URL on a real Android device.
-    final store = _settings;
-    if (store != null) {
-      try {
-        await store.writeApiBase(value);
-      } catch (_) {
-        _showSnack(SnackKind.info, 'Khong luu duoc API URL local');
+    try {
+      final value = apiController.text.trim().replaceAll(RegExp(r'/+$'), '');
+      if (value.isEmpty) {
+        _showSnack(SnackKind.error, 'API URL khong duoc de trong');
+        return;
       }
-    }
 
-    await refreshDashboard();
-    if (online) {
-      _showSnack(SnackKind.success, 'Da ket noi $value');
+      setState(() {
+        api = ApiClient(value);
+        online = false;
+      });
+
+      // Persist for next launch so the operator does not have to
+      // re-enter the URL on a real Android device.
+      final store = _settings;
+      if (store != null) {
+        try {
+          await store.writeApiBase(value);
+        } catch (_) {
+          _showSnack(SnackKind.info, 'Khong luu duoc API URL local');
+        }
+      }
+
+      await refreshDashboard();
+      if (!mounted) return;
+      if (online) {
+        _showSnack(SnackKind.success, 'Da ket noi $value');
+      }
+    } finally {
+      if (mounted) {
+        _setRunning('apply-url', false);
+      }
     }
   }
 
@@ -320,7 +350,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   }
 
   String get connectionLabel {
-    if (loading) {
+    if (anyLoading) {
       return 'Dang dong bo backend ...';
     }
     return online ? 'Backend san sang' : 'Mat ket noi backend';
@@ -332,13 +362,13 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       'dashboard' => DashboardView(snapshot: dashboard),
       'control' => ControlView(
           currentMode: dashboard.status.modeCode,
-          loading: loading,
+          isRunning: isRunning,
           onCommand: sendCommand,
         ),
       'manage' => ManageView(
           phasePlans: dashboard.phasePlans,
           approaches: dashboard.approaches,
-          loading: loading,
+          isRunning: isRunning,
           onUpdatePlan: updatePhasePlan,
           onActivatePlan: activatePhasePlan,
           onUpdateApproach: updateApproach,
@@ -349,6 +379,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           controller: apiController,
           online: online,
           apiBase: api.baseUrl,
+          isRunning: isRunning,
           deviceStatuses: dashboard.deviceStatuses,
           onApply: applyApiBase,
           onRefresh: refreshDashboard,
@@ -361,7 +392,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       appBar: AppBar(
         title: const Text('IoT Traffic Light'),
         actions: [
-          ConnectionBadge(online: online, loading: loading),
+          ConnectionBadge(online: online, loading: anyLoading),
           const SizedBox(width: 12),
         ],
       ),
@@ -465,13 +496,13 @@ class DashboardView extends StatelessWidget {
 class ControlView extends StatelessWidget {
   const ControlView({
     required this.currentMode,
-    required this.loading,
+    required this.isRunning,
     required this.onCommand,
     super.key,
   });
 
   final String currentMode;
-  final bool loading;
+  final bool Function(String key) isRunning;
   final Future<void> Function(String modeCode) onCommand;
 
   @override
@@ -484,7 +515,7 @@ class ControlView extends StatelessWidget {
           label: 'AUTO',
           icon: Icons.autorenew,
           active: currentMode == 'AUTO',
-          loading: loading,
+          loading: isRunning('cmd:AUTO'),
           onPressed: onCommand,
         ),
         ControlButton(
@@ -492,7 +523,7 @@ class ControlView extends StatelessWidget {
           label: 'NIGHT',
           icon: Icons.nightlight_round,
           active: currentMode == 'NIGHT',
-          loading: loading,
+          loading: isRunning('cmd:NIGHT'),
           onPressed: onCommand,
         ),
         ControlButton(
@@ -500,7 +531,7 @@ class ControlView extends StatelessWidget {
           label: 'PRIORITY NS',
           icon: Icons.swap_vert,
           active: currentMode == 'PRIORITY_NS',
-          loading: loading,
+          loading: isRunning('cmd:PRIORITY_NS'),
           onPressed: onCommand,
         ),
         ControlButton(
@@ -508,7 +539,7 @@ class ControlView extends StatelessWidget {
           label: 'PRIORITY EW',
           icon: Icons.swap_horiz,
           active: currentMode == 'PRIORITY_EW',
-          loading: loading,
+          loading: isRunning('cmd:PRIORITY_EW'),
           onPressed: onCommand,
         ),
         ControlButton(
@@ -516,7 +547,7 @@ class ControlView extends StatelessWidget {
           label: 'EMERGENCY',
           icon: Icons.emergency,
           active: currentMode == 'EMERGENCY',
-          loading: loading,
+          loading: isRunning('cmd:EMERGENCY'),
           danger: true,
           onPressed: onCommand,
         ),
@@ -531,7 +562,7 @@ class ManageView extends StatefulWidget {
   const ManageView({
     required this.phasePlans,
     required this.approaches,
-    required this.loading,
+    required this.isRunning,
     required this.onUpdatePlan,
     required this.onActivatePlan,
     required this.onUpdateApproach,
@@ -540,7 +571,7 @@ class ManageView extends StatefulWidget {
 
   final List<PhasePlan> phasePlans;
   final List<Approach> approaches;
-  final bool loading;
+  final bool Function(String key) isRunning;
   final Future<void> Function(
       PhasePlan plan, int greenSeconds, int yellowSeconds) onUpdatePlan;
   final Future<void> Function(PhasePlan plan) onActivatePlan;
@@ -583,14 +614,14 @@ class _ManageViewState extends State<ManageView> {
         if (selected == ManageSection.phasePlans)
           PhasePlanEditor(
             phasePlans: widget.phasePlans,
-            loading: widget.loading,
+            isRunning: widget.isRunning,
             onUpdate: widget.onUpdatePlan,
             onActivate: widget.onActivatePlan,
           )
         else
           RoadsView(
             approaches: widget.approaches,
-            loading: widget.loading,
+            isRunning: widget.isRunning,
             onUpdate: widget.onUpdateApproach,
           ),
       ],
@@ -601,14 +632,14 @@ class _ManageViewState extends State<ManageView> {
 class PhasePlanEditor extends StatelessWidget {
   const PhasePlanEditor({
     required this.phasePlans,
-    required this.loading,
+    required this.isRunning,
     required this.onUpdate,
     required this.onActivate,
     super.key,
   });
 
   final List<PhasePlan> phasePlans;
-  final bool loading;
+  final bool Function(String key) isRunning;
   final Future<void> Function(
       PhasePlan plan, int greenSeconds, int yellowSeconds) onUpdate;
   final Future<void> Function(PhasePlan plan) onActivate;
@@ -624,7 +655,7 @@ class PhasePlanEditor extends StatelessWidget {
                   .map(
                     (plan) => PhasePlanEditorTile(
                       plan: plan,
-                      loading: loading,
+                      isRunning: isRunning,
                       onUpdate: onUpdate,
                       onActivate: onActivate,
                     ),
@@ -638,14 +669,14 @@ class PhasePlanEditor extends StatelessWidget {
 class PhasePlanEditorTile extends StatefulWidget {
   const PhasePlanEditorTile({
     required this.plan,
-    required this.loading,
+    required this.isRunning,
     required this.onUpdate,
     required this.onActivate,
     super.key,
   });
 
   final PhasePlan plan;
-  final bool loading;
+  final bool Function(String key) isRunning;
   final Future<void> Function(
       PhasePlan plan, int greenSeconds, int yellowSeconds) onUpdate;
   final Future<void> Function(PhasePlan plan) onActivate;
@@ -687,6 +718,9 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
 
   @override
   Widget build(BuildContext context) {
+    final updating = widget.isRunning('plan:update:${widget.plan.id}');
+    final activating = widget.isRunning('plan:activate:${widget.plan.id}');
+    final anyBusy = updating || activating;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DecoratedBox(
@@ -720,7 +754,7 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
                   Expanded(
                     child: TextField(
                       controller: greenController,
-                      enabled: !widget.loading,
+                      enabled: !anyBusy,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Green seconds',
@@ -732,7 +766,7 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
                   Expanded(
                     child: TextField(
                       controller: yellowController,
-                      enabled: !widget.loading,
+                      enabled: !anyBusy,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Yellow seconds',
@@ -750,14 +784,20 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
                 children: [
                   if (!widget.plan.isActive)
                     OutlinedButton.icon(
-                      onPressed: widget.loading
+                      onPressed: anyBusy
                           ? null
                           : () => widget.onActivate(widget.plan),
-                      icon: const Icon(Icons.play_arrow),
+                      icon: activating
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.play_arrow),
                       label: const Text('Activate'),
                     ),
                   FilledButton.icon(
-                    onPressed: widget.loading
+                    onPressed: anyBusy
                         ? null
                         : () {
                             final green =
@@ -775,7 +815,17 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
                             }
                             widget.onUpdate(widget.plan, green, yellow);
                           },
-                    icon: const Icon(Icons.save),
+                    icon: updating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.save),
                     label: const Text('Save'),
                   ),
                 ],
@@ -791,13 +841,13 @@ class _PhasePlanEditorTileState extends State<PhasePlanEditorTile> {
 class RoadsView extends StatelessWidget {
   const RoadsView({
     required this.approaches,
-    required this.loading,
+    required this.isRunning,
     required this.onUpdate,
     super.key,
   });
 
   final List<Approach> approaches;
-  final bool loading;
+  final bool Function(String key) isRunning;
   final Future<void> Function(Approach approach, bool isActive) onUpdate;
 
   @override
@@ -811,7 +861,9 @@ class RoadsView extends StatelessWidget {
                   .map(
                     (approach) => SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      secondary: const Icon(Icons.traffic),
+                      secondary: approach.isActive
+                          ? const Icon(Icons.traffic)
+                          : const Icon(Icons.traffic_outlined),
                       title: Text('${approach.code} - ${approach.name}'),
                       subtitle: Text(
                         '${approach.signalCode} | pins '
@@ -819,8 +871,9 @@ class RoadsView extends StatelessWidget {
                         'G${approach.greenPin}',
                       ),
                       value: approach.isActive,
-                      onChanged:
-                          loading ? null : (value) => onUpdate(approach, value),
+                      onChanged: isRunning('approach:${approach.id}')
+                          ? null
+                          : (value) => onUpdate(approach, value),
                     ),
                   )
                   .toList(),
@@ -869,6 +922,7 @@ class SettingsView extends StatelessWidget {
     required this.controller,
     required this.online,
     required this.apiBase,
+    required this.isRunning,
     required this.deviceStatuses,
     required this.onApply,
     required this.onRefresh,
@@ -878,12 +932,15 @@ class SettingsView extends StatelessWidget {
   final TextEditingController controller;
   final bool online;
   final String apiBase;
+  final bool Function(String key) isRunning;
   final List<Map<String, dynamic>> deviceStatuses;
   final Future<void> Function() onApply;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final applying = isRunning('apply-url');
+    final refreshing = isRunning('refresh');
     return SectionCard(
       title: 'Backend connection',
       child: Column(
@@ -891,6 +948,7 @@ class SettingsView extends StatelessWidget {
         children: [
           TextField(
             controller: controller,
+            enabled: !applying,
             decoration: const InputDecoration(
               labelText: 'API base URL',
               hintText: 'http://10.0.2.2:8000',
@@ -904,16 +962,31 @@ class SettingsView extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: onApply,
-                  icon: const Icon(Icons.save),
+                  onPressed: applying ? null : onApply,
+                  icon: applying
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.save),
                   label: const Text('Apply'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh),
+                  onPressed: refreshing ? null : onRefresh,
+                  icon: refreshing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
                   label: const Text('Test'),
                 ),
               ),
@@ -1090,7 +1163,16 @@ class ControlButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: loading ? null : () => onPressed(modeCode),
-        icon: Icon(icon),
+        icon: loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              )
+            : Icon(icon),
         label: Text(label),
       ),
     );
