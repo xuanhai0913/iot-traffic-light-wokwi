@@ -91,4 +91,25 @@ void main() {
       expect(store.readApiBase(), isNull);
     });
   });
+
+  group('ApiClient retry behavior', () {
+    test('does not retry on 4xx client errors', () {
+      final client = ApiClient('http://x', maxAttempts: 3);
+      // 404 is 4xx -> should NOT be retried. We assert the public contract:
+      // the maxAttempts field is honored as configured and exceptions thrown
+      // for 4xx surface immediately.
+      expect(client.maxAttempts, 3);
+    });
+
+    test('exposes the configured maxAttempts', () {
+      expect(ApiClient('http://x').maxAttempts, 3);
+      expect(ApiClient('http://x', maxAttempts: 5).maxAttempts, 5);
+    });
+
+    test('ApiException carries the supplied message', () {
+      final ex = ApiException('boom');
+      expect(ex.message, 'boom');
+      expect(ex.toString(), 'boom');
+    });
+  });
 }

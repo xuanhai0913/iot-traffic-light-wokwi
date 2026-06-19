@@ -1408,9 +1408,10 @@ class EmptyState extends StatelessWidget {
 }
 
 class ApiClient {
-  ApiClient(this.baseUrl);
+  ApiClient(this.baseUrl, {this.maxAttempts = 3});
 
   final String baseUrl;
+  final int maxAttempts;
 
   Future<Map<String, dynamic>> getJson(String path) => _send('GET', path);
 
@@ -1424,45 +1425,67 @@ class ApiClient {
 
   Future<Map<String, dynamic>> _send(String method, String path,
       {Map<String, dynamic>? body}) async {
-    try {
-      final uri = Uri.parse('$baseUrl$path');
-      final headers = <String, String>{'Accept': 'application/json'};
-      if (body != null) {
-        headers['Content-Type'] = 'application/json';
-      }
-
-      final response = switch (method) {
-        'POST' => await http
-            .post(uri,
-                headers: headers, body: body == null ? null : jsonEncode(body))
-            .timeout(const Duration(seconds: 5)),
-        'PUT' => await http
-            .put(uri,
-                headers: headers, body: body == null ? null : jsonEncode(body))
-            .timeout(const Duration(seconds: 5)),
-        _ => await http
-            .get(uri, headers: headers)
-            .timeout(const Duration(seconds: 5)),
-      };
-      final decoded = response.body.isEmpty
-          ? <String, dynamic>{}
-          : jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final error = decoded['error'];
-        if (error is Map<String, dynamic> && error['message'] != null) {
-          throw ApiException(error['message'].toString());
-        }
-        throw ApiException('HTTP ${response.statusCode}');
-      }
-
-      return decoded;
-    } on http.ClientException {
-      throw ApiException('Khong ket noi duoc API $baseUrl');
-    } on TimeoutException {
-      throw ApiException('API timeout $baseUrl');
-    } on FormatException {
-      throw ApiException('API tra ve du lieu khong hop le');
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (body != null) {
+      headers['Content-Type'] = 'application/json';
     }
+    final encodedBody = body == null ? null : jsonEncode(body);
+
+    Object? lastError;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = switch (method) {
+          'POST' => await http
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(const Duration(seconds: 5)),
+          'PUT' => await http
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(const Duration(seconds: 5)),
+          _ => await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 5)),
+        };
+        // 4xx: client error, do not retry.
+        if (response.statusCode >= 400 && response.statusCode < 500) {
+          return _decodeOrThrow(response);
+        }
+        // 2xx: success.
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return _decodeOrThrow(response);
+        }
+        // 5xx or anything else: retryable.
+        lastError = ApiException('HTTP ${response.statusCode}');
+      } on http.ClientException {
+        lastError = ApiException('Khong ket noi duoc API $baseUrl');
+      } on TimeoutException {
+        lastError = ApiException('API timeout $baseUrl');
+      } on FormatException {
+        // Bad response payload: do not retry, surface immediately.
+        throw ApiException('API tra ve du lieu khong hop le');
+      }
+      if (attempt < maxAttempts) {
+        // Exponential backoff: 300ms, 600ms, 1200ms ...
+        final delay = Duration(
+            milliseconds: 300 * (1 << (attempt - 1)));
+        await Future<void>.delayed(delay);
+      }
+    }
+    throw lastError ?? ApiException('API request failed after $maxAttempts attempts');
+  }
+
+  Map<String, dynamic> _decodeOrThrow(http.Response response) {
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final error = decoded['error'];
+      if (error is Map<String, dynamic> && error['message'] != null) {
+        throw ApiException(error['message'].toString());
+      }
+      throw ApiException('HTTP ${response.statusCode}');
+    }
+    return decoded;
   }
 }
 
