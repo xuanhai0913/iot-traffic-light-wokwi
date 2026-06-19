@@ -10,13 +10,27 @@ void main() {
   runApp(const TrafficOperatorApp());
 }
 
-class TrafficOperatorApp extends StatelessWidget {
+class TrafficOperatorApp extends StatefulWidget {
   const TrafficOperatorApp({super.key});
+
+  @override
+  State<TrafficOperatorApp> createState() => _TrafficOperatorAppState();
+}
+
+class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
+  // GlobalKey for the root ScaffoldMessenger. Wired into MaterialApp so that
+  // SnackBars and dialogs from anywhere in the tree resolve correctly (web,
+  // mobile, and desktop). Earlier this key was attached as Scaffold.key,
+  // which silently failed at runtime because Scaffold does not host a
+  // ScaffoldMessenger element.
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: _messengerKey,
       title: 'IoT Traffic Light',
       theme: ThemeData(
         useMaterial3: true,
@@ -43,13 +57,15 @@ class TrafficOperatorApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const TrafficHomePage(),
+      home: TrafficHomePage(messengerKey: _messengerKey),
     );
   }
 }
 
 class TrafficHomePage extends StatefulWidget {
-  const TrafficHomePage({super.key});
+  const TrafficHomePage({required this.messengerKey, super.key});
+
+  final GlobalKey<ScaffoldMessengerState> messengerKey;
 
   @override
   State<TrafficHomePage> createState() => _TrafficHomePageState();
@@ -58,8 +74,13 @@ class TrafficHomePage extends StatefulWidget {
 class _TrafficHomePageState extends State<TrafficHomePage> {
   final TextEditingController apiController =
       TextEditingController(text: defaultApiBase);
-  final GlobalKey<ScaffoldMessengerState> _messengerKey =
-      GlobalKey<ScaffoldMessengerState>();
+
+  // Pulled from the parent widget so the same key is wired into MaterialApp's
+  // ScaffoldMessenger (see TrafficOperatorApp). Do not redeclare a fresh key
+  // here; doing so would orphan the messenger and re-introduce the bug where
+  // SnackBars and dialogs silently no-op on Flutter web.
+  late final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      widget.messengerKey;
   late ApiClient api = ApiClient(defaultApiBase);
   SettingsStore? _settings;
   Timer? pollTimer;

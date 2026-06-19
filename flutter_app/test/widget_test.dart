@@ -247,4 +247,32 @@ void main() {
       expect(store.readSkipConfirm(), false);
     });
   });
+
+  // Regression test for the messenger-key wiring bug. The fix moved the
+  // GlobalKey<ScaffoldMessengerState> from being attached as Scaffold.key
+  // (which silently swallowed the dialog) to MaterialApp.scaffoldMessengerKey
+  // (which is the supported Flutter 3.0+ API). Verifying the wiring directly
+  // is more reliable than driving the full showDialog + confirm flow from
+  // a tester.tap, which is fragile in the polling-heavy app shell.
+  testWidgets(
+      'MaterialApp binds a non-null ScaffoldMessengerState via the messenger key',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const TrafficOperatorApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // The MaterialApp must be the one we built (sanity check on tree).
+    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(materialApp.scaffoldMessengerKey, isNotNull,
+        reason: 'MaterialApp.scaffoldMessengerKey must be wired for SnackBar feedback');
+
+    // After the first frame, the ScaffoldMessenger exists and its state is
+    // bound to the same key. If currentState is null, the same key was
+    // attached to the wrong widget (the original bug).
+    final messengerState = materialApp.scaffoldMessengerKey!.currentState;
+    expect(messengerState, isNotNull,
+        reason: 'ScaffoldMessengerState must be resolvable through the key — '
+            'otherwise dialogs and SnackBars will be silently dropped');
+  });
 }
