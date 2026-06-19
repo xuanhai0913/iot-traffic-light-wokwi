@@ -150,4 +150,101 @@ void main() {
       expect(ex.toString(), 'boom');
     });
   });
+
+  group('DangerLevel', () {
+    test('flags EMERGENCY as critical', () {
+      expect(DangerLevel.forMode('EMERGENCY'), DangerLevel.critical);
+    });
+
+    test('flags PRIORITY modes as risky', () {
+      expect(DangerLevel.forMode('PRIORITY_NS'), DangerLevel.risky);
+      expect(DangerLevel.forMode('PRIORITY_EW'), DangerLevel.risky);
+    });
+
+    test('flags AUTO and NIGHT as safe', () {
+      expect(DangerLevel.forMode('AUTO'), DangerLevel.safe);
+      expect(DangerLevel.forMode('NIGHT'), DangerLevel.safe);
+      expect(DangerLevel.forMode('UNKNOWN'), DangerLevel.safe);
+    });
+
+    test('every level has a distinct icon and color', () {
+      expect(DangerLevel.safe.icon, isNot(DangerLevel.risky.icon));
+      expect(DangerLevel.risky.icon, isNot(DangerLevel.critical.icon));
+      expect(DangerLevel.safe.color, isNot(DangerLevel.risky.color));
+      expect(DangerLevel.risky.color, isNot(DangerLevel.critical.color));
+    });
+  });
+
+  testWidgets('DangerousCommandDialog describes the impact of the mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => const Scaffold(
+            body: Center(
+              child: DangerousCommandDialog(
+                modeCode: 'EMERGENCY',
+                danger: DangerLevel.critical,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Confirm SET_EMERGENCY'), findsOneWidget);
+    expect(find.text('Risk level: Critical'), findsOneWidget);
+    // Critical dialog must mention flashing red so the operator reads the
+    // consequence before tapping Send.
+    expect(find.textContaining('flashing red'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Send anyway'), findsOneWidget);
+  });
+
+  testWidgets('DangerousCommandDialog for PRIORITY_NS describes NS priority',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => const Scaffold(
+            body: Center(
+              child: DangerousCommandDialog(
+                modeCode: 'PRIORITY_NS',
+                danger: DangerLevel.risky,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Risk level: Risky'), findsOneWidget);
+    expect(find.textContaining('North-South'), findsOneWidget);
+    expect(find.textContaining('East-West'), findsOneWidget);
+  });
+
+  group('SettingsStore skip-confirm', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('defaults to false (always confirm)', () async {
+      final store = await SettingsStore.open();
+      expect(store.readSkipConfirm(), false);
+    });
+
+    test('round-trips a true value', () async {
+      final store = await SettingsStore.open();
+      await store.writeSkipConfirm(true);
+      expect(store.readSkipConfirm(), true);
+    });
+
+    test('clears the value when set back to false', () async {
+      final store = await SettingsStore.open();
+      await store.writeSkipConfirm(true);
+      expect(store.readSkipConfirm(), true);
+      await store.writeSkipConfirm(false);
+      expect(store.readSkipConfirm(), false);
+    });
+  });
 }

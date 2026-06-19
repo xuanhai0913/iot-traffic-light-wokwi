@@ -67,6 +67,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   DashboardSnapshot dashboard = DashboardSnapshot.empty();
   final Set<String> _runningActions = <String>{};
   bool online = false;
+  bool skipDangerConfirm = false;
   String selectedPage = 'dashboard';
 
   bool isRunning(String key) => _runningActions.contains(key);
@@ -94,10 +95,16 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     try {
       final store = await SettingsStore.open();
       final savedBase = store.readApiBase();
+      final savedSkipConfirm = store.readSkipConfirm();
       if (savedBase != null && mounted) {
         setState(() {
           api = ApiClient(savedBase);
           apiController.text = savedBase;
+          skipDangerConfirm = savedSkipConfirm;
+        });
+      } else if (mounted) {
+        setState(() {
+          skipDangerConfirm = savedSkipConfirm;
         });
       }
       _settings = store;
@@ -106,6 +113,21 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       // the default API URL if SharedPreferences is unavailable.
     }
     await refreshDashboard();
+  }
+
+  Future<void> toggleSkipConfirm(bool value) async {
+    setState(() {
+      skipDangerConfirm = value;
+    });
+    final store = _settings;
+    if (store == null) {
+      return;
+    }
+    try {
+      await store.writeSkipConfirm(value);
+    } catch (_) {
+      _showSnack(SnackKind.info, 'Khong luu duoc setting local');
+    }
   }
 
   @override
@@ -177,6 +199,15 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     if (isRunning(key)) {
       return;
     }
+
+    final danger = DangerLevel.forMode(modeCode);
+    if (danger != DangerLevel.safe && _requireConfirm(danger)) {
+      final confirmed = await _showDangerConfirmDialog(modeCode, danger);
+      if (confirmed != true) {
+        return;
+      }
+    }
+
     _setRunning(key, true);
 
     try {
@@ -201,6 +232,31 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         _setRunning(key, false);
       }
     }
+  }
+
+  bool _requireConfirm(DangerLevel danger) {
+    final store = _settings;
+    if (store == null) {
+      return true;
+    }
+    if (store.readSkipConfirm() && danger != DangerLevel.critical) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<bool?> _showDangerConfirmDialog(
+      String modeCode, DangerLevel danger) async {
+    final messenger = _messengerKey.currentState;
+    if (messenger == null) {
+      return null;
+    }
+    return showDialog<bool>(
+      context: messenger.context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          DangerousCommandDialog(modeCode: modeCode, danger: danger),
+    );
   }
 
   Future<void> _showCommandResultDialog(Map<String, dynamic> result) async {
@@ -411,8 +467,10 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           apiBase: api.baseUrl,
           isRunning: isRunning,
           deviceStatuses: dashboard.deviceStatuses,
+          skipDangerConfirm: skipDangerConfirm,
           onApply: applyApiBase,
           onRefresh: refreshDashboard,
+          onToggleSkipConfirm: toggleSkipConfirm,
         ),
       _ => DashboardView(snapshot: dashboard),
     };
@@ -954,8 +1012,10 @@ class SettingsView extends StatelessWidget {
     required this.apiBase,
     required this.isRunning,
     required this.deviceStatuses,
+    required this.skipDangerConfirm,
     required this.onApply,
     required this.onRefresh,
+    required this.onToggleSkipConfirm,
     super.key,
   });
 
@@ -964,8 +1024,10 @@ class SettingsView extends StatelessWidget {
   final String apiBase;
   final bool Function(String key) isRunning;
   final List<Map<String, dynamic>> deviceStatuses;
+  final bool skipDangerConfirm;
   final Future<void> Function() onApply;
   final Future<void> Function() onRefresh;
+  final ValueChanged<bool> onToggleSkipConfirm;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,6 +1089,19 @@ class SettingsView extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text('Endpoint: $apiBase'),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.warning_amber_rounded),
+            title: const Text('Confirm risky commands'),
+            subtitle: Text(
+              skipDangerConfirm
+                  ? 'EMERGENCY and PRIORITY modes send without asking.'
+                  : 'Ask before sending EMERGENCY and PRIORITY modes.',
+            ),
+            value: !skipDangerConfirm,
+            onChanged: (value) => onToggleSkipConfirm(!value),
+          ),
           const SizedBox(height: 16),
           Text('ESP32 devices', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
@@ -1501,6 +1576,97 @@ class CommandResultDialog extends StatelessWidget {
   }
 }
 
+enum DangerLevel {
+  safe('Safe', Icons.check_circle_outline, Color(0xFF1F7A5B), 'No extra caution needed.'),
+  risky('Risky', Icons.warning_amber_rounded, Color(0xFFB26A00),
+      'One direction will be blocked from green.'),
+  critical('Critical', Icons.dangerous_outlined, Color(0xFFC0392B),
+      'All approaches will flash red until cleared by the operator.');
+
+  const DangerLevel(this.label, this.icon, this.color, this.description);
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final String description;
+
+  static DangerLevel forMode(String modeCode) {
+    return switch (modeCode) {
+      'EMERGENCY' => DangerLevel.critical,
+      'PRIORITY_NS' || 'PRIORITY_EW' => DangerLevel.risky,
+      _ => DangerLevel.safe,
+    };
+  }
+}
+
+class DangerousCommandDialog extends StatelessWidget {
+  const DangerousCommandDialog({
+    required this.modeCode,
+    required this.danger,
+    super.key,
+  });
+
+  final String modeCode;
+  final DangerLevel danger;
+
+  String get _impact {
+    return switch (modeCode) {
+      'PRIORITY_NS' =>
+        'North-South will get a forced green while East-West stays red.',
+      'PRIORITY_EW' =>
+        'East-West will get a forced green while North-South stays red.',
+      'EMERGENCY' =>
+        'Both directions will lock on flashing red. Traffic will stop '
+            'until you switch back to AUTO or NIGHT.',
+      _ => danger.description,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: Icon(danger.icon, color: danger.color, size: 32),
+      title: Text('Confirm SET_$modeCode'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Risk level: ${danger.label}',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: danger.color,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(_impact),
+          const SizedBox(height: 12),
+          const Text(
+            'The Wokwi device will receive the new mode on its next '
+            'MQTT tick (~1 second).',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: danger.color,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          icon: const Icon(Icons.send),
+          label: const Text('Send anyway'),
+        ),
+      ],
+    );
+  }
+}
+
 class ConnectionBadge extends StatelessWidget {
   const ConnectionBadge(
       {required this.online, required this.loading, super.key});
@@ -1875,6 +2041,7 @@ const defaultApiBase =
     kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000';
 
 const String _apiBasePrefsKey = 'iot_traffic_light.api_base_url';
+const String _skipConfirmPrefsKey = 'iot_traffic_light.skip_danger_confirm';
 
 class SettingsStore {
   SettingsStore._(this._prefs);
@@ -1905,6 +2072,16 @@ class SettingsStore {
       return;
     }
     await _prefs.setString(_apiBasePrefsKey, trimmed);
+  }
+
+  bool readSkipConfirm() => _prefs.getBool(_skipConfirmPrefsKey) ?? false;
+
+  Future<void> writeSkipConfirm(bool value) async {
+    if (value) {
+      await _prefs.setBool(_skipConfirmPrefsKey, true);
+    } else {
+      await _prefs.remove(_skipConfirmPrefsKey);
+    }
   }
 }
 
