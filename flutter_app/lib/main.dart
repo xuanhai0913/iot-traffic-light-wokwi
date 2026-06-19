@@ -147,7 +147,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     try {
       await store.writeSkipConfirm(value);
     } catch (_) {
-      _showSnack(SnackKind.info, 'Khong luu duoc setting local');
+      _showSnack(SnackKind.info, 'Không lưu được setting local');
     }
   }
 
@@ -328,7 +328,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showSnack(SnackKind.success, 'Da cap nhat phase plan ${plan.name}');
+      _showSnack(SnackKind.success, 'Đã cập nhật phase plan ${plan.name}');
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {
@@ -352,7 +352,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showSnack(SnackKind.success, 'Da kich hoat phase plan ${plan.name}');
+      _showSnack(SnackKind.success, 'Đã kích hoạt phase plan ${plan.name}');
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {
@@ -382,7 +382,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       });
       _showSnack(
         SnackKind.success,
-        '${approach.code} da ${isActive ? 'bat' : 'tat'} tren backend',
+        '${approach.code} đã ${isActive ? 'bật' : 'tắt'} trên backend',
       );
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
@@ -402,7 +402,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     try {
       final value = apiController.text.trim().replaceAll(RegExp(r'/+$'), '');
       if (value.isEmpty) {
-        _showSnack(SnackKind.error, 'API URL khong duoc de trong');
+        _showSnack(SnackKind.error, 'API URL không được để trống');
         return;
       }
 
@@ -418,14 +418,14 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         try {
           await store.writeApiBase(value);
         } catch (_) {
-          _showSnack(SnackKind.info, 'Khong luu duoc API URL local');
+          _showSnack(SnackKind.info, 'Không lưu được API URL local');
         }
       }
 
       await refreshDashboard();
       if (!mounted) return;
       if (online) {
-        _showSnack(SnackKind.success, 'Da ket noi $value');
+        _showSnack(SnackKind.success, 'Đã kết nối $value');
       }
     } finally {
       if (mounted) {
@@ -458,9 +458,9 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
   String get connectionLabel {
     if (anyLoading) {
-      return 'Dang dong bo backend ...';
+      return 'Đang đồng bộ backend ...';
     }
-    return online ? 'Backend san sang' : 'Mat ket noi backend';
+    return online ? 'Backend sẵn sàng' : 'Mất kết nối backend';
   }
 
   @override
@@ -497,7 +497,6 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     };
 
     return Scaffold(
-      key: _messengerKey,
       appBar: AppBar(
         title: const Text('IoT Traffic Light'),
         actions: [
@@ -758,7 +757,7 @@ class PhasePlanEditor extends StatelessWidget {
     return SectionCard(
       title: 'Phase plan configuration',
       child: phasePlans.isEmpty
-          ? const EmptyState(text: 'Chua co phase plan')
+          ? const EmptyState(text: 'Chưa có phase plan')
           : Column(
               children: phasePlans
                   .map(
@@ -964,7 +963,7 @@ class RoadsView extends StatelessWidget {
     return SectionCard(
       title: 'Road approaches and signal heads',
       child: approaches.isEmpty
-          ? const EmptyState(text: 'Chua co approach')
+          ? const EmptyState(text: 'Chưa có approach')
           : Column(
               children: approaches
                   .map(
@@ -1005,7 +1004,7 @@ class HistoryView extends StatelessWidget {
         SectionCard(
           title: 'Command history',
           child: commands.isEmpty
-              ? const EmptyState(text: 'Chua co command')
+              ? const EmptyState(text: 'Chưa có command')
               : Column(
                   children: commands
                       .map((entry) => CommandTile(entry: entry))
@@ -1016,7 +1015,7 @@ class HistoryView extends StatelessWidget {
         SectionCard(
           title: 'Device logs',
           child: logs.isEmpty
-              ? const EmptyState(text: 'Chua co log')
+              ? const EmptyState(text: 'Chưa có log')
               : Column(
                   children: logs.map((log) => LogTile(log: log)).toList(),
                 ),
@@ -1127,7 +1126,7 @@ class SettingsView extends StatelessWidget {
           Text('ESP32 devices', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
           if (deviceStatuses.isEmpty)
-            const Text('Chua nhan heartbeat/status tu Wokwi')
+            const Text('Chưa nhận heartbeat/status từ Wokwi')
           else
             ...deviceStatuses.map(
               (device) => ListTile(
@@ -1319,7 +1318,7 @@ class PhasePlanCard extends StatelessWidget {
     return SectionCard(
       title: 'Active phase plan',
       child: active == null
-          ? const EmptyState(text: 'Chua co phase plan')
+          ? const EmptyState(text: 'Chưa có phase plan')
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1771,12 +1770,12 @@ class ApiClient {
         // 5xx or anything else: retryable.
         lastError = ApiException('HTTP ${response.statusCode}');
       } on http.ClientException {
-        lastError = ApiException('Khong ket noi duoc API $baseUrl');
+        lastError = ApiException('Không kết nối được API $baseUrl');
       } on TimeoutException {
         lastError = ApiException('API timeout $baseUrl');
       } on FormatException {
         // Bad response payload: do not retry, surface immediately.
-        throw ApiException('API tra ve du lieu khong hop le');
+        throw ApiException('API trả về dữ liệu không hợp lệ');
       }
       if (attempt < maxAttempts) {
         // Exponential backoff: 300ms, 600ms, 1200ms ...

@@ -25,7 +25,7 @@ void main() {
 
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
     // The old inline message must be gone.
-    expect(find.text('Chua ket noi backend'), findsNothing);
+    expect(find.text('Mất kết nối backend'), findsNothing);
   });
 
   test('SnackKind maps each kind to a distinct icon and color', () {

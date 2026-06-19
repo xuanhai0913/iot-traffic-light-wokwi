@@ -45,7 +45,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\run-backend-demo.ps1 -Port 8010
 ```
 
-Neu chi muon xem IP/env ma khong start backend:
+Nếu chỉ muốn xem IP/env mà không start backend:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
@@ -70,7 +70,7 @@ traffic/hainx-iot-traffic-light/intersections/1/status
 traffic/hainx-iot-traffic-light/intersections/1/acks
 ```
 
-Bien moi truong co the cau hinh:
+Biến môi trường có thể cấu hình:
 
 ```powershell
 $env:MQTT_ENABLED="true"
@@ -80,7 +80,7 @@ $env:MQTT_TOPIC_PREFIX="traffic/hainx-iot-traffic-light"
 dotnet run
 ```
 
-Neu chi muon test API/database khong dung MQTT:
+Nếu chỉ muốn test API/database không dùng MQTT:
 
 ```powershell
 $env:MQTT_ENABLED="false"
@@ -89,29 +89,29 @@ dotnet run
 
 ## Endpoints
 
-| Method | Endpoint | Muc dich |
+| Method | Endpoint | Mục đích |
 |---|---|---|
-| GET | `/api/health` | Kiem tra backend |
-| GET | `/api/traffic-modes` | Danh sach mode dieu khien |
-| GET | `/api/intersections` | Danh sach giao lo |
-| GET | `/api/intersections/1/dashboard` | Snapshot tong hop cho dashboard PWA |
-| GET | `/api/intersections/1/status` | Trang thai hien tai |
-| GET | `/api/intersections/1/approaches` | Danh sach tuyen duong va signal head |
-| POST | `/api/intersections/1/approaches` | Them tuyen duong |
-| PUT | `/api/approaches/{id}` | Cap nhat/bat tat tuyen duong |
+| GET | `/api/health` | Kiểm tra backend |
+| GET | `/api/traffic-modes` | Danh sách mode điều khiển |
+| GET | `/api/intersections` | Danh sách giao lộ |
+| GET | `/api/intersections/1/dashboard` | Snapshot tổng hợp cho dashboard PWA |
+| GET | `/api/intersections/1/status` | Trạng thái hiện tại |
+| GET | `/api/intersections/1/approaches` | Danh sách tuyến đường và signal head |
+| POST | `/api/intersections/1/approaches` | Thêm tuyến đường |
+| PUT | `/api/approaches/{id}` | Cập nhật/bật tắt tuyến đường |
 | GET | `/api/intersections/1/phase-plans` | Xem phase plan |
-| GET | `/api/intersections/1/devices` | Trang thai thiet bi ESP32/Wokwi |
-| POST | `/api/intersections/1/phase-plans` | Tao phase plan co ban |
-| PUT | `/api/phase-plans/{id}` | Cap nhat thoi gian xanh/vang |
-| POST | `/api/phase-plans/{id}/activate` | Kich hoat phase plan |
-| POST | `/api/intersections/1/commands` | Gui lenh doi mode |
-| GET | `/api/intersections/1/commands` | Lich su lenh |
-| GET | `/api/intersections/1/logs` | Log trang thai |
-| POST | `/api/intersections/1/logs` | Ghi log trang thai |
-| GET | `/api/mqtt/status` | Kiem tra ket noi MQTT bridge |
+| GET | `/api/intersections/1/devices` | Trạng thái thiết bị ESP32/Wokwi |
+| POST | `/api/intersections/1/phase-plans` | Tạo phase plan cơ bản |
+| PUT | `/api/phase-plans/{id}` | Cập nhật thời gian xanh/vàng |
+| POST | `/api/phase-plans/{id}/activate` | Kích hoạt phase plan |
+| POST | `/api/intersections/1/commands` | Gửi lệnh đổi mode |
+| GET | `/api/intersections/1/commands` | Lịch sử lệnh |
+| GET | `/api/intersections/1/logs` | Log trạng thái |
+| POST | `/api/intersections/1/logs` | Ghi log trạng thái |
+| GET | `/api/mqtt/status` | Kiểm tra kết nối MQTT bridge |
 | POST | `/api/mqtt/test-command` | Publish command test qua MQTT |
 
-## Lenh dieu khien
+## Lệnh điều khiển
 
 ```powershell
 Invoke-RestMethod `
@@ -121,7 +121,7 @@ Invoke-RestMethod `
   -Body '{"command":"SET_EMERGENCY","source":"mobile","createdBy":"operator"}'
 ```
 
-Lenh ho tro:
+Lệnh hỗ trợ:
 
 - `SET_AUTO`
 - `SET_NIGHT`
@@ -129,7 +129,7 @@ Lenh ho tro:
 - `SET_PRIORITY_EW`
 - `SET_EMERGENCY`
 
-## Cap nhat cau hinh pha
+## Cập nhật cấu hình pha
 
 ```powershell
 Invoke-RestMethod `
@@ -139,7 +139,7 @@ Invoke-RestMethod `
   -Body '{"greenSeconds":10,"yellowSeconds":3}'
 ```
 
-## Tao phase plan co ban
+## Tạo phase plan cơ bản
 
 ```powershell
 Invoke-RestMethod `
@@ -149,7 +149,7 @@ Invoke-RestMethod `
   -Body '{"name":"Plan 10-3","greenSeconds":10,"yellowSeconds":3,"activate":true}'
 ```
 
-## Them tuyen duong
+## Thêm tuyến đường
 
 ```powershell
 Invoke-RestMethod `
