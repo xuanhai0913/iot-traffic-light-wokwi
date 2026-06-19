@@ -58,6 +58,8 @@ class TrafficHomePage extends StatefulWidget {
 class _TrafficHomePageState extends State<TrafficHomePage> {
   final TextEditingController apiController =
       TextEditingController(text: defaultApiBase);
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
   late ApiClient api = ApiClient(defaultApiBase);
   SettingsStore? _settings;
   Timer? pollTimer;
@@ -66,7 +68,6 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   bool loading = false;
   bool online = false;
   String selectedPage = 'dashboard';
-  String message = 'Chua ket noi backend';
 
   @override
   void initState() {
@@ -112,21 +113,26 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
     try {
       final data = await api.getJson('/api/intersections/1/dashboard');
+      if (!mounted) return;
       setState(() {
         dashboard =
             DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
         online = true;
-        message = 'Dang ket noi C# API';
       });
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         online = false;
-        message = error.toString();
       });
+      if (force) {
+        _showSnack(SnackKind.error, error.toString());
+      }
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -137,22 +143,24 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
     try {
       final data = await api.getJson('/api/intersections/1/status');
+      if (!mounted) return;
       setState(() {
         dashboard = dashboard.copyWith(
           status: TrafficStatus.fromJson(data['data'] as Map<String, dynamic>),
         );
       });
     } catch (_) {
-      setState(() {
-        online = false;
-      });
+      if (mounted) {
+        setState(() {
+          online = false;
+        });
+      }
     }
   }
 
   Future<void> sendCommand(String modeCode) async {
     setState(() {
       loading = true;
-      message = 'Dang gui SET_$modeCode';
     });
 
     try {
@@ -167,16 +175,16 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       await refreshDashboard(force: true);
       setState(() {
         online = true;
-        message = 'Da gui ${result['command']}';
       });
+      _showSnack(SnackKind.success, 'Da gui ${result['command']}');
     } catch (error) {
-      setState(() {
-        message = error.toString();
-      });
+      _showSnack(SnackKind.error, error.toString());
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
@@ -184,7 +192,6 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       PhasePlan plan, int greenSeconds, int yellowSeconds) async {
     setState(() {
       loading = true;
-      message = 'Dang cap nhat ${plan.name}';
     });
 
     try {
@@ -195,23 +202,22 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       await refreshDashboard(force: true);
       setState(() {
         online = true;
-        message = 'Da cap nhat phase plan ${plan.name}';
       });
+      _showSnack(SnackKind.success, 'Da cap nhat phase plan ${plan.name}');
     } catch (error) {
-      setState(() {
-        message = error.toString();
-      });
+      _showSnack(SnackKind.error, error.toString());
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
   Future<void> activatePhasePlan(PhasePlan plan) async {
     setState(() {
       loading = true;
-      message = 'Dang kich hoat ${plan.name}';
     });
 
     try {
@@ -219,23 +225,22 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       await refreshDashboard(force: true);
       setState(() {
         online = true;
-        message = 'Da kich hoat phase plan ${plan.name}';
       });
+      _showSnack(SnackKind.success, 'Da kich hoat phase plan ${plan.name}');
     } catch (error) {
-      setState(() {
-        message = error.toString();
-      });
+      _showSnack(SnackKind.error, error.toString());
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
   Future<void> updateApproach(Approach approach, bool isActive) async {
     setState(() {
       loading = true;
-      message = 'Dang cap nhat ${approach.code}';
     });
 
     try {
@@ -247,30 +252,32 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       await refreshDashboard(force: true);
       setState(() {
         online = true;
-        message =
-            '${approach.code} da ${isActive ? 'bat' : 'tat'} tren backend';
       });
+      _showSnack(
+        SnackKind.success,
+        '${approach.code} da ${isActive ? 'bat' : 'tat'} tren backend',
+      );
     } catch (error) {
-      setState(() {
-        message = error.toString();
-      });
+      _showSnack(SnackKind.error, error.toString());
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 
   Future<void> applyApiBase() async {
     final value = apiController.text.trim().replaceAll(RegExp(r'/+$'), '');
     if (value.isEmpty) {
+      _showSnack(SnackKind.error, 'API URL khong duoc de trong');
       return;
     }
 
     setState(() {
       api = ApiClient(value);
       online = false;
-      message = 'Da doi API URL';
     });
 
     // Persist for next launch so the operator does not have to
@@ -280,11 +287,43 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       try {
         await store.writeApiBase(value);
       } catch (_) {
-        // Persistence failure should not block the URL change.
+        _showSnack(SnackKind.info, 'Khong luu duoc API URL local');
       }
     }
 
     await refreshDashboard();
+    if (online) {
+      _showSnack(SnackKind.success, 'Da ket noi $value');
+    }
+  }
+
+  void _showSnack(SnackKind kind, String text) {
+    final messenger = _messengerKey.currentState;
+    if (messenger == null) {
+      return;
+    }
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(kind.icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text)),
+          ],
+        ),
+        backgroundColor: kind.color,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: kind.durationSeconds),
+      ),
+    );
+  }
+
+  String get connectionLabel {
+    if (loading) {
+      return 'Dang dong bo backend ...';
+    }
+    return online ? 'Backend san sang' : 'Mat ket noi backend';
   }
 
   @override
@@ -309,7 +348,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       'settings' => SettingsView(
           controller: apiController,
           online: online,
-          message: message,
+          apiBase: api.baseUrl,
           deviceStatuses: dashboard.deviceStatuses,
           onApply: applyApiBase,
           onRefresh: refreshDashboard,
@@ -318,6 +357,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     };
 
     return Scaffold(
+      key: _messengerKey,
       appBar: AppBar(
         title: const Text('IoT Traffic Light'),
         actions: [
@@ -337,7 +377,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      StatusBanner(message: message, online: online),
+                      StatusBanner(online: online, status: connectionLabel),
                       const SizedBox(height: 12),
                       content,
                     ],
@@ -828,7 +868,7 @@ class SettingsView extends StatelessWidget {
   const SettingsView({
     required this.controller,
     required this.online,
-    required this.message,
+    required this.apiBase,
     required this.deviceStatuses,
     required this.onApply,
     required this.onRefresh,
@@ -837,7 +877,7 @@ class SettingsView extends StatelessWidget {
 
   final TextEditingController controller;
   final bool online;
-  final String message;
+  final String apiBase;
   final List<Map<String, dynamic>> deviceStatuses;
   final Future<void> Function() onApply;
   final Future<void> Function() onRefresh;
@@ -883,7 +923,7 @@ class SettingsView extends StatelessWidget {
           Text(online ? 'Connected' : 'Offline',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          Text(message),
+          Text('Endpoint: $apiBase'),
           const SizedBox(height: 16),
           Text('ESP32 devices', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 6),
@@ -1206,9 +1246,9 @@ class LogTile extends StatelessWidget {
 }
 
 class StatusBanner extends StatelessWidget {
-  const StatusBanner({required this.message, required this.online, super.key});
+  const StatusBanner({required this.status, required this.online, super.key});
 
-  final String message;
+  final String status;
   final bool online;
 
   @override
@@ -1222,10 +1262,34 @@ class StatusBanner extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(message),
+        child: Row(
+          children: [
+            Icon(
+              online ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+              size: 18,
+              color: online
+                  ? const Color(0xFF1F7A5B)
+                  : const Color(0xFFB26A00),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(status)),
+          ],
+        ),
       ),
     );
   }
+}
+
+enum SnackKind {
+  success(Icons.check_circle, Color(0xFF1F7A5B), 2),
+  error(Icons.error_outline, Color(0xFFC0392B), 4),
+  info(Icons.info_outline, Color(0xFF3D5A80), 3);
+
+  const SnackKind(this.icon, this.color, this.durationSeconds);
+
+  final IconData icon;
+  final Color color;
+  final int durationSeconds;
 }
 
 class ConnectionBadge extends StatelessWidget {
