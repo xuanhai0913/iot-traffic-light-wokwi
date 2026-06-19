@@ -67,6 +67,44 @@ void main() {
     );
   });
 
+  testWidgets('CommandResultDialog shows every backend response field',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => const Scaffold(
+            body: Center(
+              child: CommandResultDialog(
+                command: 'SET_AUTO',
+                commandId: '999',
+                modeCode: 'AUTO',
+                source: 'flutter',
+                createdBy: 'operator',
+                createdAt: '2026-06-18 17:30:00',
+                deviceStatus: 'queued',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Command accepted: SET_AUTO'), findsOneWidget);
+    expect(find.text('Command ID'), findsOneWidget);
+    expect(find.text('999'), findsOneWidget);
+    expect(find.text('Mode'), findsOneWidget);
+    expect(find.text('AUTO'), findsOneWidget);
+    expect(find.text('Source'), findsOneWidget);
+    expect(find.text('flutter'), findsOneWidget);
+    expect(find.text('Created by'), findsOneWidget);
+    expect(find.text('operator'), findsOneWidget);
+    expect(find.text('Created at'), findsOneWidget);
+    expect(find.text('2026-06-18 17:30:00'), findsOneWidget);
+    expect(find.text('Device status'), findsOneWidget);
+    expect(find.text('queued'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Close'), findsOneWidget);
+  });
+
   group('SettingsStore', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});

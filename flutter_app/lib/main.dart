@@ -193,7 +193,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showSnack(SnackKind.success, 'Da gui ${result['command']}');
+      _showCommandResultDialog(result);
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {
@@ -201,6 +201,36 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         _setRunning(key, false);
       }
     }
+  }
+
+  Future<void> _showCommandResultDialog(Map<String, dynamic> result) async {
+    final messenger = _messengerKey.currentState;
+    if (messenger == null) {
+      return;
+    }
+    final command = result['command']?.toString() ?? 'SET_?';
+    final commandId = result['commandId'] ?? result['id'] ?? '-';
+    final modeCode = result['modeCode']?.toString() ?? '-';
+    final source = result['source']?.toString() ?? '-';
+    final createdBy = result['createdBy']?.toString() ?? '-';
+    final createdAt = compactTime(result['createdAt'] ?? result['created_at']);
+    final deviceStatus = result['deviceStatus']?.toString() ?? 'queued';
+    final String commandIdDisplay = commandId.toString();
+
+    await showDialog<void>(
+      context: messenger.context,
+      builder: (dialogContext) {
+        return CommandResultDialog(
+          command: command,
+          commandId: commandIdDisplay,
+          modeCode: modeCode,
+          source: source,
+          createdBy: createdBy,
+          createdAt: createdAt,
+          deviceStatus: deviceStatus,
+        );
+      },
+    );
   }
 
   Future<void> updatePhasePlan(
@@ -1372,6 +1402,103 @@ enum SnackKind {
   final IconData icon;
   final Color color;
   final int durationSeconds;
+}
+
+class _ResultRow extends StatelessWidget {
+  const _ResultRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CommandResultDialog extends StatelessWidget {
+  const CommandResultDialog({
+    required this.command,
+    required this.commandId,
+    required this.modeCode,
+    required this.source,
+    required this.createdBy,
+    required this.createdAt,
+    required this.deviceStatus,
+    super.key,
+  });
+
+  final String command;
+  final String commandId;
+  final String modeCode;
+  final String source;
+  final String createdBy;
+  final String createdAt;
+  final String deviceStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Color(0xFF1F7A5B)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Command accepted: $command',
+                overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ResultRow(label: 'Command ID', value: commandId),
+          _ResultRow(label: 'Mode', value: modeCode),
+          _ResultRow(label: 'Source', value: source),
+          _ResultRow(label: 'Created by', value: createdBy),
+          _ResultRow(label: 'Created at', value: createdAt),
+          _ResultRow(label: 'Device status', value: deviceStatus),
+          const SizedBox(height: 8),
+          const Text(
+            'The MQTT bridge will publish this payload to the '
+            'Wokwi device on the next tick.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
 }
 
 class ConnectionBadge extends StatelessWidget {
