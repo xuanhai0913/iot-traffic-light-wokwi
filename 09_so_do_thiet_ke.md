@@ -2,9 +2,9 @@
 
 ## ERD có phù hợp dự án không?
 
-Có, ERD phù hợp với hệ thống IoT Traffic Light mở rộng theo hướng có dashboard/mobile app và database quản lý.
+Có, ERD phù hợp với hệ thống IoT Traffic Light mở rộng theo hướng có bảng điều khiển web / ứng dụng di động và cơ sở dữ liệu quản lý.
 
-Phần mô phỏng Wokwi có thể hoạt động độc lập, tuy nhiên database giúp hệ thống có chiều sâu hơn:
+Phần mô phỏng Wokwi có thể hoạt động độc lập, tuy nhiên cơ sở dữ liệu giúp hệ thống có chiều sâu hơn:
 
 - Lưu cấu hình thời gian các pha đèn.
 - Lưu chế độ hoạt động của hệ thống.
@@ -15,8 +15,8 @@ Phần mô phỏng Wokwi có thể hoạt động độc lập, tuy nhiên datab
 Mô hình triển khai:
 
 - ESP32/Wokwi: mô phỏng thiết bị.
-- Backend: xử lý lệnh.
-- Database: lưu dữ liệu quản lý.
+- Máy chủ: xử lý lệnh.
+- Cơ sở dữ liệu: lưu dữ liệu quản lý.
 
 ---
 
@@ -25,9 +25,9 @@ Mô hình triển khai:
 | Sơ đồ | Đưa vào report | Mục đích |
 |-|-|-|
 | Kiến trúc hệ thống | Có | Mô tả các thành phần IoT |
-| ERD Database | Có | Thiết kế CSDL |
+| ERD Database | Có | Thiết kế cơ sở dữ liệu |
 | State Machine | Có | Thuật toán điều khiển đèn |
-| Class Diagram | Có | Thể hiện OOP |
+| Class Diagram | Có | Thể hiện lập trình hướng đối tượng |
 | Sequence Diagram | Có | Mô tả luồng gửi lệnh |
 
 ---
@@ -37,43 +37,43 @@ Mô hình triển khai:
 ```mermaid
 flowchart TD
 
-Operator["Người vận hành"]
-Admin["Người quản trị"]
+NguoiVanHanh["Người vận hành"]
+QuanTri["Người quản trị"]
 
-Dashboard["Dashboard / Mobile App"]
+BangDieuKhien["Bảng điều khiển Web / Ứng dụng di động"]
 
-Backend["Backend API"]
+MayChu["Máy chủ API"]
 
-Database[("SQLite Database")]
+CoSoDuLieu[("Cơ sở dữ liệu SQLite")]
 
 MQTT["MQTT Gateway"]
 
 ESP32["ESP32 Controller"]
 
-Wokwi["Wokwi Simulation"]
+Wokwi["Mô phỏng Wokwi"]
 
-Lights["Traffic Lights"]
+DenGiaoThong["Đèn giao thông"]
 
 LCD["LCD Countdown"]
 
-Button["Buttons"]
+NutBam["Nút bấm"]
 
 
-Operator --> Dashboard
-Admin --> Dashboard
+NguoiVanHanh --> BangDieuKhien
+QuanTri --> BangDieuKhien
 
-Dashboard --> Backend
+BangDieuKhien --> MayChu
 
-Backend --> Database
+MayChu --> CoSoDuLieu
 
-Backend --> MQTT
+MayChu --> MQTT
 
 MQTT --> ESP32
 
-ESP32 --> Lights
+ESP32 --> DenGiaoThong
 ESP32 --> LCD
 
-Button --> ESP32
+NutBam --> ESP32
 
 ESP32 --> Wokwi
 ```
@@ -86,108 +86,109 @@ ESP32 --> Wokwi
 erDiagram
 
 
-INTERSECTIONS ||--o{ PHASE_CONFIGS : has
+GIAO_LO ||--o{ CAU_HINH_PHA_DEN : co
 
-INTERSECTIONS ||--o{ CONTROL_COMMANDS : receives
+GIAO_LO ||--o{ LENH_DIEU_KHIEN : nhan
 
-INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : logs
-
-
-TRAFFIC_MODES ||--o{ PHASE_CONFIGS : configures
-
-TRAFFIC_MODES ||--o{ CONTROL_COMMANDS : uses
-
-TRAFFIC_MODES ||--o{ TRAFFIC_EVENT_LOGS : records
+GIAO_LO ||--o{ NHAT_KY_SU_KIEN : luu
 
 
+CHE_DO_GIAO_THONG ||--o{ CAU_HINH_PHA_DEN : cau_hinh
 
-INTERSECTIONS {
+CHE_DO_GIAO_THONG ||--o{ LENH_DIEU_KHIEN : su_dung
+
+CHE_DO_GIAO_THONG ||--o{ NHAT_KY_SU_KIEN : ghi_nhan
+
+
+
+GIAO_LO {
 
 int id PK
 
-string name
+string ten
 
-string location
+string vi_tri
 
-string status
+string trang_thai
 
-datetime created_at
+datetime thoi_gian_tao
 
 }
 
 
 
-TRAFFIC_MODES {
+CHE_DO_GIAO_THONG {
 
 int id PK
 
-string code UK
+string ma_che_do UK
 
-string name
+string ten
 
-string description
+string mo_ta
 
 }
 
 
 
-PHASE_CONFIGS {
+CAU_HINH_PHA_DEN {
 
 int id PK
 
-int intersection_id FK
+int giao_lo_id FK
 
-string mode_code FK
+string ma_che_do FK
 
-string direction
+string huong
 
-int green_seconds
+int thoi_gian_xanh
 
-int yellow_seconds
+int thoi_gian_vang
 
-int red_seconds
+int thoi_gian_do
 
-boolean is_active
+boolean dang_hoat_dong
 
 }
 
 
 
-CONTROL_COMMANDS {
+LENH_DIEU_KHIEN {
 
 int id PK
 
-int intersection_id FK
+int giao_lo_id FK
 
-string command
+string lenh
 
-string source
+string nguon
 
-string created_by
+string nguoi_tao
 
-datetime created_at
+datetime thoi_gian_tao
 
 }
 
 
 
-TRAFFIC_EVENT_LOGS {
+NHAT_KY_SU_KIEN {
 
 int id PK
 
-int intersection_id FK
+int giao_lo_id FK
 
-string mode_code
+string ma_che_do
 
-string ns_light
+string den_bac_nam
 
-string ew_light
+string den_dong_tay
 
-int remaining_seconds
+int thoi_gian_con_lai
 
-datetime created_at
+datetime thoi_gian_tao
 
 }
+
 
 ```
 
@@ -195,7 +196,7 @@ datetime created_at
 
 # Giải thích database
 
-## intersections
+## giao_lo
 
 Lưu thông tin giao lộ.
 
@@ -206,7 +207,7 @@ Ví dụ:
 - trạng thái hiện tại
 
 
-## traffic_modes
+## che_do_giao_thong
 
 Lưu các chế độ:
 
@@ -216,7 +217,7 @@ Lưu các chế độ:
 - EMERGENCY
 
 
-## phase_configs
+## cau_hinh_pha_den
 
 Lưu cấu hình thời gian đèn:
 
@@ -225,15 +226,15 @@ Lưu cấu hình thời gian đèn:
 - đỏ
 
 
-## control_commands
+## lenh_dieu_khien
 
 Lưu các lệnh từ:
 
-- dashboard
-- mobile app
+- bảng điều khiển
+- ứng dụng di động
 
 
-## traffic_event_logs
+## nhat_ky_su_kien
 
 Lưu lịch sử hoạt động:
 
@@ -250,77 +251,39 @@ Lưu lịch sử hoạt động:
 ```mermaid
 stateDiagram-v2
 
-
 [*] --> AUTO_NS_GREEN
 
 
-AUTO_NS_GREEN --> AUTO_NS_YELLOW:
-hết thời gian xanh Bắc Nam
+AUTO_NS_GREEN --> AUTO_NS_YELLOW: hết thời gian xanh Bắc-Nam
+AUTO_NS_YELLOW --> AUTO_EW_GREEN: hết thời gian vàng Bắc-Nam
+AUTO_EW_GREEN --> AUTO_EW_YELLOW: hết thời gian xanh Đông-Tây
+AUTO_EW_YELLOW --> AUTO_NS_GREEN: hết thời gian vàng Đông-Tây
 
 
-AUTO_NS_YELLOW --> AUTO_EW_GREEN:
-hết thời gian vàng Bắc Nam
+AUTO_NS_GREEN --> NIGHT: lệnh NIGHT
+AUTO_NS_YELLOW --> NIGHT: lệnh NIGHT
+AUTO_EW_GREEN --> NIGHT: lệnh NIGHT
+AUTO_EW_YELLOW --> NIGHT: lệnh NIGHT
 
 
-AUTO_EW_GREEN --> AUTO_EW_YELLOW:
-hết thời gian xanh Đông Tây
+NIGHT --> AUTO_NS_GREEN: lệnh AUTO
+NIGHT --> NIGHT: vàng nhấp nháy
 
 
-AUTO_EW_YELLOW --> AUTO_NS_GREEN:
-hết thời gian vàng Đông Tây
+AUTO_NS_GREEN --> PRIORITY_NS: lệnh PRIORITY_NS
+AUTO_EW_GREEN --> PRIORITY_EW: lệnh PRIORITY_EW
+
+PRIORITY_NS --> AUTO_NS_GREEN: lệnh AUTO
+PRIORITY_EW --> AUTO_NS_GREEN: lệnh AUTO
 
 
+AUTO_NS_GREEN --> EMERGENCY: lệnh EMERGENCY
+AUTO_EW_GREEN --> EMERGENCY: lệnh EMERGENCY
+NIGHT --> EMERGENCY: lệnh EMERGENCY
+PRIORITY_NS --> EMERGENCY: lệnh EMERGENCY
+PRIORITY_EW --> EMERGENCY: lệnh EMERGENCY
 
-AUTO_NS_GREEN --> NIGHT:
-lệnh NIGHT
-
-AUTO_EW_GREEN --> NIGHT:
-lệnh NIGHT
-
-
-
-NIGHT --> NIGHT:
-vàng nhấp nháy
-
-
-NIGHT --> AUTO_NS_GREEN:
-lệnh AUTO
-
-
-
-AUTO_NS_GREEN --> PRIORITY_NS:
-ưu tiên Bắc Nam
-
-
-AUTO_EW_GREEN --> PRIORITY_EW:
-ưu tiên Đông Tây
-
-
-
-PRIORITY_NS --> AUTO_NS_GREEN:
-hoàn thành
-
-
-PRIORITY_EW --> AUTO_NS_GREEN:
-hoàn thành
-
-
-
-AUTO_NS_GREEN --> EMERGENCY:
-lệnh EMERGENCY
-
-
-AUTO_EW_GREEN --> EMERGENCY:
-lệnh EMERGENCY
-
-
-NIGHT --> EMERGENCY:
-lệnh EMERGENCY
-
-
-
-EMERGENCY --> AUTO_NS_GREEN:
-lệnh AUTO
+EMERGENCY --> AUTO_NS_GREEN: lệnh AUTO
 ```
 
 ---
@@ -330,31 +293,28 @@ lệnh AUTO
 ```text
 START
 
+while hệ thống đang chạy:
 
-while system running:
+    đọc chế độ hiện tại
 
+    nếu chế độ == EMERGENCY:
 
-    read current mode
-
-
-    if mode == EMERGENCY:
-
-        turn all lights RED
+        bật tất cả đèn đỏ
 
 
-    else if mode == PRIORITY:
+    ngược lại nếu chế độ == PRIORITY:
 
-        give green light to priority direction
-
-
-    else if mode == NIGHT:
-
-        blink yellow lights
+        cho hướng ưu tiên đèn xanh
 
 
-    else:
+    ngược lại nếu chế độ == NIGHT:
 
-        run AUTO sequence
+        nhấp nháy đèn vàng
+
+
+    ngược lại:
+
+        chạy chu trình AUTO
 
 
 END
@@ -368,93 +328,94 @@ END
 classDiagram
 
 
-class TrafficLight {
+class DenGiaoThong {
 
--int redPin
+-int chanDo
 
--int yellowPin
+-int chanVang
 
--int greenPin
+-int chanXanh
 
-+begin()
++batDau()
 
-+setRed()
++batDo()
 
-+setYellow()
++batVang()
 
-+setGreen()
-
-}
-
-
-
-class TrafficPhase {
-
-+String name
-
-+String nsLight
-
-+String ewLight
-
-+int durationSeconds
++batXanh()
 
 }
 
 
 
-class ModeManager {
+class PhaTinHieu {
 
--String currentMode
++String ten
 
-+setMode()
++String bacNam
 
-+getMode()
++String dongTay
 
-+isEmergency()
-
-+isNight()
++int thoiGian
 
 }
 
 
 
-class DisplayManager {
+class QuanLyCheDo {
 
-+showMode()
+-String cheDoHienTai
 
-+showCountdown()
++datCheDo()
 
-+showLights()
++layCheDo()
 
-}
++kiemTraKhanCap()
 
-
-
-class IntersectionController {
-
-+begin()
-
-+update()
-
-+runAuto()
-
-+runNight()
-
-+runPriority()
-
-+runEmergency()
++kiemTraBanDem()
 
 }
 
 
 
-IntersectionController --> TrafficLight
+class QuanLyHienThi {
 
-IntersectionController --> TrafficPhase
++hienThiCheDo()
 
-IntersectionController --> ModeManager
++hienThiDemNguoc()
 
-IntersectionController --> DisplayManager
++hienThiTrangThai()
+
+}
+
+
+
+class BoDieuKhienGiaoLo {
+
++batDau()
+
++capNhat()
+
++chayTuDong()
+
++chayBanDem()
+
++chayUuTien()
+
++chayKhanCap()
+
+}
+
+
+
+BoDieuKhienGiaoLo --> DenGiaoThong
+
+BoDieuKhienGiaoLo --> PhaTinHieu
+
+BoDieuKhienGiaoLo --> QuanLyCheDo
+
+BoDieuKhienGiaoLo --> QuanLyHienThi
+
 
 ```
 
@@ -465,50 +426,50 @@ IntersectionController --> DisplayManager
 ```mermaid
 sequenceDiagram
 
+actor NguoiDung
 
-actor User
+participant BangDieuKhien
 
-participant UI as Dashboard
+participant MayChu
 
-participant API as Backend
-
-participant DB as Database
+participant CoSoDuLieu
 
 participant ESP32
 
 participant Wokwi
 
 
-User->>UI:
+NguoiDung->>BangDieuKhien:
 chọn chế độ
 
 
-UI->>API:
-gửi command
-
-
-API->>DB:
-lưu command
-
-
-API->>ESP32:
+BangDieuKhien->>MayChu:
 gửi lệnh
+
+
+MayChu->>CoSoDuLieu:
+lưu lệnh
+
+
+MayChu->>ESP32:
+gửi command
 
 
 ESP32->>Wokwi:
 đổi trạng thái LED
 
 
-ESP32->>API:
-gửi status
+ESP32->>MayChu:
+gửi trạng thái
 
 
-API->>DB:
+MayChu->>CoSoDuLieu:
 lưu log
 
 
-API->>UI:
+MayChu->>BangDieuKhien:
 trả trạng thái
+
 
 ```
 
@@ -519,29 +480,28 @@ trả trạng thái
 ```mermaid
 sequenceDiagram
 
+actor NguoiVanHanh
 
-actor Operator
+participant UngDung
 
-participant App
-
-participant API
+participant MayChu
 
 participant MQTT
 
 participant ESP32
 
-participant Light
+participant Den
 
 
-Operator->>App:
+NguoiVanHanh->>UngDung:
 chọn AUTO/NIGHT/PRIORITY/EMERGENCY
 
 
-App->>API:
+UngDung->>MayChu:
 POST command
 
 
-API->>MQTT:
+MayChu->>MQTT:
 publish message
 
 
@@ -549,7 +509,7 @@ MQTT->>ESP32:
 receive command
 
 
-ESP32->>Light:
+ESP32->>Den:
 update LED
 
 
@@ -557,12 +517,13 @@ ESP32->>MQTT:
 publish status
 
 
-MQTT->>API:
+MQTT->>MayChu:
 status event
 
 
-API->>App:
+MayChu->>UngDung:
 update display
+
 
 ```
 
@@ -573,29 +534,29 @@ update display
 ```mermaid
 flowchart LR
 
+Input["Nút bấm / Lệnh từ Dashboard"]
 
-Input["Button / Dashboard Command"]
+KiemTra["Kiểm tra lệnh"]
 
-Validate["Validate Command"]
+CheDo["Cập nhật chế độ"]
 
-Mode["Update Mode"]
+DieuKhien["Điều khiển LED"]
 
-Control["Control LED"]
-
-Log["Save Log"]
+LuuLog["Lưu nhật ký"]
 
 Output["LCD / Dashboard"]
 
 
-Input --> Validate
+Input --> KiemTra
 
-Validate --> Mode
+KiemTra --> CheDo
 
-Mode --> Control
+CheDo --> DieuKhien
 
-Control --> Log
+DieuKhien --> LuuLog
 
-Control --> Output
+DieuKhien --> Output
+
 
 ```
 
