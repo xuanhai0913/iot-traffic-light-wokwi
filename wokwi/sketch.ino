@@ -28,6 +28,7 @@ const char *DEVICE_ID = "wokwi-esp32-01";
 const char *COMMAND_TOPIC = "traffic/hainx-iot-traffic-light/intersections/1/commands";
 const char *STATUS_TOPIC = "traffic/hainx-iot-traffic-light/intersections/1/status";
 const char *ACK_TOPIC = "traffic/hainx-iot-traffic-light/intersections/1/acks";
+const char *LOGS_REPLAY_TOPIC = "traffic/hainx-iot-traffic-light/intersections/1/logs/replay";
 const unsigned long WIFI_RETRY_MS = 10000;
 const unsigned long MQTT_RETRY_MS = 10000;
 const uint32_t TCP_CONNECT_TIMEOUT_MS = 750;
@@ -443,6 +444,51 @@ private:
 };
 
 const uint8_t PhaseConfig::DEFAULT_DURATIONS[PhaseConfig::PHASE_COUNT] = {8, 3, 8, 3};
+
+// W4: in-memory ring buffer of recent events for offline debugging.
+// Holds up to 20 entries; oldest is overwritten on overflow. Dump via MQTT
+// command GET_LOGS. RAM cost ~20 * 64 = 1.3 KB.
+class EventLog {
+public:
+  static constexpr uint8_t CAPACITY = 20;
+
+  enum class Level { Info, Warn, Error };
+
+  struct Entry {
+    unsigned long uptimeMs;
+    Level level;
+    const char *message;
+  };
+
+  void add(Level level, const char *message) {
+    Entry &e = buffer[head];
+    e.uptimeMs = millis();
+    e.level = level;
+    e.message = message;
+    head = (head + 1) % CAPACITY;
+    if (count < CAPACITY) count++;
+  }
+
+  // Snapshot in chronological order (oldest first).
+  void snapshot(Entry (&out)[CAPACITY], uint8_t &size) const {
+    size = count;
+    if (count < CAPACITY) {
+      for (uint8_t i = 0; i < count; i++) out[i] = buffer[i];
+    } else {
+      // Buffer is full; head points to oldest. Walk from head.
+      for (uint8_t i = 0; i < CAPACITY; i++) {
+        out[i] = buffer[(head + i) % CAPACITY];
+      }
+    }
+  }
+
+  uint8_t size() const { return count; }
+
+private:
+  Entry buffer[CAPACITY] = {};
+  uint8_t head = 0;
+  uint8_t count = 0;
+};
 
 class IModeStrategy {
 public:
@@ -929,8 +975,8 @@ public:
 
 class MqttClientManager {
 public:
-  MqttClientManager(ModeManager &modeManager, IntersectionController &controller, PhaseConfig &phaseConfig)
-      : modeManager(modeManager), controller(controller), phaseConfig(phaseConfig), mqtt(wifiClient) {}
+  MqttClientManager(ModeManager &modeManager, IntersectionController &controller, PhaseConfig &phaseConfig, EventLog &eventLog)
+      : modeManager(modeManager), controller(controller), phaseConfig(phaseConfig), eventLog(eventLog), mqtt(wifiClient) {}
 
   void begin() {
     WiFi.mode(WIFI_STA);
@@ -977,6 +1023,7 @@ private:
   ModeManager &modeManager;
   IntersectionController &controller;
   PhaseConfig &phaseConfig;
+  EventLog &eventLog;
   BoundedWiFiClient wifiClient;
   PubSubClient mqtt;
   String clientId;
@@ -1057,8 +1104,10 @@ private:
       uint8_t secs = static_cast<uint8_t>(durStr.toInt());
       int commandId = extractJsonInt(body, "commandId");
       if (phaseConfig.setDuration(idx, secs)) {
+        eventLog.add(EventLog::Level::Info, "SET_PHASE_CONFIG");
         publishAck(commandId, "SET_PHASE_CONFIG", "acknowledged", "Phase duration updated");
       } else {
+        eventLog.add(EventLog::Level::Warn, "SET_PHASE_CONFIG rejected");
         publishAck(commandId, "SET_PHASE_CONFIG", "rejected", "Invalid phase or duration");
       }
       Serial.print("MQTT command on ");
@@ -1068,6 +1117,21 @@ private:
       Serial.print(" duration=");
       Serial.println(secs);
       return;
+    }
+
+    // GET_LOGS: { "command": "GET_LOGS", "commandId": 7 }
+    // Dumps the in-RAM ring buffer to traffic/.../logs/replay.
+    {
+      String getLogsCmd = extractJsonString(body, "command");
+      int getLogsId = extractJsonInt(body, "commandId");
+      if (getLogsCmd == "GET_LOGS") {
+        eventLog.add(EventLog::Level::Info, "GET_LOGS request received");
+        publishLogsSnapshot(getLogsId);
+        Serial.print("MQTT command on ");
+        Serial.print(topic);
+        Serial.println(": GET_LOGS");
+        return;
+      }
     }
 
     String command = extractJsonString(body, "command");
@@ -1089,6 +1153,7 @@ private:
     CommandApplyResult result = modeManager.applyExternalCommand(command, canonicalCommand);
     if (result == CommandApplyResult::Applied) {
       deferStatusUntilNextUpdate = true;
+      eventLog.add(EventLog::Level::Info, command.c_str());
       publishAck(commandId, canonicalCommand, "acknowledged", "Mode changed");
     } else if (result == CommandApplyResult::AlreadyActive) {
       publishAck(commandId, canonicalCommand, "acknowledged", "Mode already active");
@@ -1129,6 +1194,75 @@ private:
     if (!mqtt.publish(MqttConfig::ACK_TOPIC, payload.c_str())) {
       Serial.println("MQTT ACK publish failed");
     }
+  }
+
+  void publishLogsSnapshot(int commandId) {
+    if (!mqtt.connected()) {
+      return;
+    }
+
+    EventLog::Entry entries[EventLog::CAPACITY];
+    uint8_t size = 0;
+    eventLog.snapshot(entries, size);
+
+    String payload = "{";
+    payload += "\"intersectionId\":1,";
+    payload += "\"deviceId\":\"";
+    payload += MqttConfig::DEVICE_ID;
+    payload += "\",";
+    payload += "\"commandId\":";
+    payload += String(commandId);
+    payload += ",";
+    payload += "\"command\":\"GET_LOGS\",";
+    payload += "\"status\":\"acknowledged\",";
+    payload += "\"count\":";
+    payload += String(size);
+    payload += ",";
+    payload += "\"events\":[";
+    for (uint8_t i = 0; i < size; i++) {
+      if (i > 0) payload += ",";
+      payload += "{\"uptimeMs\":";
+      payload += String(entries[i].uptimeMs);
+      payload += ",\"level\":\"";
+      payload += levelToString(entries[i].level);
+      payload += "\",\"message\":\"";
+      payload += entries[i].message;
+      payload += "\"}";
+    }
+    payload += "],";
+    appendUptimeMs(payload);
+    payload += "}";
+
+    if (!mqtt.publish(MqttConfig::LOGS_REPLAY_TOPIC, payload.c_str())) {
+      Serial.println("MQTT logs replay publish failed");
+      return;
+    }
+
+    String ackPayload = "{";
+    ackPayload += "\"intersectionId\":1,";
+    ackPayload += "\"deviceId\":\"";
+    ackPayload += MqttConfig::DEVICE_ID;
+    ackPayload += "\",";
+    ackPayload += "\"commandId\":";
+    ackPayload += String(commandId);
+    ackPayload += ",";
+    ackPayload += "\"command\":\"GET_LOGS\",";
+    ackPayload += "\"status\":\"acknowledged\",";
+    ackPayload += "\"message\":\"Logs snapshot published\",";
+    appendUptimeMs(ackPayload);
+    ackPayload += "}";
+    if (!mqtt.publish(MqttConfig::ACK_TOPIC, ackPayload.c_str())) {
+      Serial.println("MQTT GET_LOGS ACK publish failed");
+    }
+  }
+
+  static const char *levelToString(EventLog::Level level) {
+    switch (level) {
+    case EventLog::Level::Info:  return "info";
+    case EventLog::Level::Warn:  return "warn";
+    case EventLog::Level::Error: return "error";
+    }
+    return "info";
   }
 
   void publishStatus() {
@@ -1291,6 +1425,7 @@ RoadApproach westApproach("WEST", "West approach", westLight);
 ModeManager modeManager;
 DisplayManager display;
 PhaseConfig phaseConfig;
+EventLog eventLog;
 IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display, phaseConfig);
 MqttClientManager mqttManager(modeManager, controller, phaseConfig);
 
@@ -1300,6 +1435,7 @@ void setup() {
   phaseConfig.begin();
   controller.begin();
   mqttManager.begin();
+  eventLog.add(EventLog::Level::Info, "Boot complete");
 }
 
 void loop() {
