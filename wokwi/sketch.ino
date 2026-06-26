@@ -2,6 +2,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <Preferences.h>
 
 namespace Pins {
 const uint8_t NS_RED = 16;
@@ -355,6 +356,85 @@ private:
 // current one. Adding a new mode = add a strategy class + add to the
 // strategies[] array in the controller constructor.
 
+// Persistent phase duration storage. Backed by ESP32 NVS via Preferences.
+// First boot seeds defaults {8,3,8,3}; later boots reload from NVS. Mutated
+// at runtime via MQTT SET_PHASE_CONFIG.
+class PhaseConfig {
+public:
+  static constexpr uint8_t NS_GREEN_IDX  = 0;
+  static constexpr uint8_t NS_YELLOW_IDX = 1;
+  static constexpr uint8_t EW_GREEN_IDX  = 2;
+  static constexpr uint8_t EW_YELLOW_IDX = 3;
+  static constexpr uint8_t PHASE_COUNT   = 4;
+  static constexpr uint8_t MIN_SECONDS   = 2;
+  static constexpr uint8_t MAX_SECONDS   = 60;
+  static const uint8_t DEFAULT_DURATIONS[PHASE_COUNT];
+
+  void begin() {
+    prefs.begin("traffic", false);
+    if (!prefs.isKey("init")) {
+      for (uint8_t i = 0; i < PHASE_COUNT; i++) {
+        prefs.putUChar(keyFor(i), DEFAULT_DURATIONS[i]);
+      }
+      prefs.putBool("init", true);
+      Serial.println("PhaseConfig: first boot, defaults saved");
+    }
+    for (uint8_t i = 0; i < PHASE_COUNT; i++) {
+      durations[i] = prefs.getUChar(keyFor(i), DEFAULT_DURATIONS[i]);
+    }
+    prefs.end();
+    printCurrent();
+  }
+
+  uint8_t getDuration(uint8_t idx) const {
+    return (idx < PHASE_COUNT) ? durations[idx] : DEFAULT_DURATIONS[0];
+  }
+
+  // Returns true if applied and persisted; false if out of bounds.
+  bool setDuration(uint8_t idx, uint8_t secs) {
+    if (idx >= PHASE_COUNT) return false;
+    if (secs < MIN_SECONDS || secs > MAX_SECONDS) return false;
+    durations[idx] = secs;
+    prefs.begin("traffic", false);
+    prefs.putUChar(keyFor(idx), secs);
+    prefs.end();
+    Serial.print("PhaseConfig: idx=");
+    Serial.print(idx);
+    Serial.print(" -> ");
+    Serial.print(secs);
+    Serial.println("s (saved)");
+    return true;
+  }
+
+private:
+  uint8_t durations[PHASE_COUNT];
+  Preferences prefs;
+
+  static const char *keyFor(uint8_t idx) {
+    switch (idx) {
+    case NS_GREEN_IDX:  return "d_ns_green";
+    case NS_YELLOW_IDX: return "d_ns_yellow";
+    case EW_GREEN_IDX:  return "d_ew_green";
+    case EW_YELLOW_IDX: return "d_ew_yellow";
+    }
+    return "d_unknown";
+  }
+
+  void printCurrent() const {
+    Serial.print("PhaseConfig: NS ");
+    Serial.print(durations[NS_GREEN_IDX]);
+    Serial.print("s/");
+    Serial.print(durations[NS_YELLOW_IDX]);
+    Serial.print("s, EW ");
+    Serial.print(durations[EW_GREEN_IDX]);
+    Serial.print("s/");
+    Serial.print(durations[EW_YELLOW_IDX]);
+    Serial.println("s");
+  }
+};
+
+const uint8_t PhaseConfig::DEFAULT_DURATIONS[PhaseConfig::PHASE_COUNT] = {8, 3, 8, 3};
+
 class IModeStrategy {
 public:
   virtual ~IModeStrategy() = default;
@@ -381,8 +461,9 @@ public:
 class AutoMode : public IModeStrategy {
 public:
   AutoMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
-           DisplayManager &display, const char *modeName)
-      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+           DisplayManager &display, PhaseConfig &phaseConfig, const char *modeName)
+      : north(n), south(s), east(e), west(w),
+        display(display), phaseConfig(phaseConfig), modeName(modeName) {}
 
   void enter() override {
     currentPhase = 0;
@@ -391,30 +472,30 @@ public:
   }
 
   void tick() override {
-    const TrafficPhase &phase = phases[currentPhase];
     unsigned long nowMs = millis();
     unsigned long elapsedMs = nowMs - phaseStartedMs;
-    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
+    uint8_t durationSec = phaseConfig.getDuration(currentPhase);
+    unsigned long durationMs = static_cast<unsigned long>(durationSec) * 1000UL;
 
     if (elapsedMs >= durationMs) {
-      currentPhase = (currentPhase + 1) % 4;
+      currentPhase = (currentPhase + 1) % PhaseConfig::PHASE_COUNT;
       phaseStartedMs = nowMs;
       applyCurrent();
       return;
     }
 
     int remaining = static_cast<int>((durationMs - elapsedMs + 999UL) / 1000UL);
-    display.showStatus(modeName, phase.name, remaining);
+    display.showStatus(modeName, META[currentPhase].name, remaining);
   }
 
   const char *phaseCode() const override {
-    return phases[currentPhase].code;
+    return META[currentPhase].code;
   }
 
   int remainingSeconds() const override {
-    const TrafficPhase &phase = phases[currentPhase];
+    uint8_t durationSec = phaseConfig.getDuration(currentPhase);
     unsigned long elapsedMs = millis() - phaseStartedMs;
-    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
+    unsigned long durationMs = static_cast<unsigned long>(durationSec) * 1000UL;
     if (elapsedMs >= durationMs) {
       return 0;
     }
@@ -423,15 +504,14 @@ public:
 
   void getLightColors(LightColor &n, LightColor &s,
                       LightColor &e, LightColor &w) const override {
-    const TrafficPhase &phase = phases[currentPhase];
-    n = phase.northColor;
-    s = phase.southColor;
-    e = phase.eastColor;
-    w = phase.westColor;
+    n = META[currentPhase].n;
+    s = META[currentPhase].s;
+    e = META[currentPhase].e;
+    w = META[currentPhase].w;
   }
 
   const char *displayLine() const override {
-    return phases[currentPhase].name;
+    return META[currentPhase].name;
   }
 
 private:
@@ -440,23 +520,28 @@ private:
   RoadApproach &east;
   RoadApproach &west;
   DisplayManager &display;
+  PhaseConfig &phaseConfig;
   const char *modeName;
 
-  // Phase durations live here (not in IntersectionController) so W2 can
-  // override them via EEPROM/MQTT without touching the controller.
-  const TrafficPhase phases[4] = {
-      {"NS_GREEN",  "NS GREEN",  LightColor::Green,  LightColor::Green,  LightColor::Red, LightColor::Red, 8},
-      {"NS_YELLOW", "NS YELLOW", LightColor::Yellow, LightColor::Yellow, LightColor::Red, LightColor::Red, 3},
-      {"EW_GREEN",  "EW GREEN",  LightColor::Red,    LightColor::Red,    LightColor::Green, LightColor::Green, 8},
-      {"EW_YELLOW", "EW YELLOW", LightColor::Red,    LightColor::Red,    LightColor::Yellow, LightColor::Yellow, 3},
+  // Static metadata: code/name + light colors per phase. Durations come
+  // from PhaseConfig at runtime (W2). Constants are intentionally separate
+  // from TrafficPhase because duration is now mutable.
+  struct PhaseMeta {
+    const char *code;
+    const char *name;
+    LightColor n;
+    LightColor s;
+    LightColor e;
+    LightColor w;
   };
+  static const PhaseMeta META[PhaseConfig::PHASE_COUNT];
 
   uint8_t currentPhase = 0;
   unsigned long phaseStartedMs = 0;
 
   void applyCurrent() {
-    const TrafficPhase &phase = phases[currentPhase];
-    applyColors(phase.northColor, phase.southColor, phase.eastColor, phase.westColor);
+    applyColors(META[currentPhase].n, META[currentPhase].s,
+                META[currentPhase].e, META[currentPhase].w);
   }
 
   void applyColors(LightColor n, LightColor s, LightColor e, LightColor w) {
@@ -465,6 +550,13 @@ private:
     east.show(e);
     west.show(w);
   }
+};
+
+const AutoMode::PhaseMeta AutoMode::META[PhaseConfig::PHASE_COUNT] = {
+    {"NS_GREEN",  "NS GREEN",  LightColor::Green,  LightColor::Green,  LightColor::Red,    LightColor::Red},
+    {"NS_YELLOW", "NS YELLOW", LightColor::Yellow, LightColor::Yellow, LightColor::Red,    LightColor::Red},
+    {"EW_GREEN",  "EW GREEN",  LightColor::Red,    LightColor::Red,    LightColor::Green,  LightColor::Green},
+    {"EW_YELLOW", "EW YELLOW", LightColor::Red,    LightColor::Red,    LightColor::Yellow, LightColor::Yellow},
 };
 
 class NightMode : public IModeStrategy {
@@ -668,10 +760,11 @@ class IntersectionController {
 public:
   IntersectionController(RoadApproach &north, RoadApproach &south, RoadApproach &east, RoadApproach &west,
                          ModeManager &modeManager,
-                         DisplayManager &display)
+                         DisplayManager &display,
+                         PhaseConfig &phaseConfig)
       : north(north), south(south), east(east), west(west),
-        modeManager(modeManager), display(display),
-        autoMode(north, south, east, west, display, modeNameFor(TrafficMode::Auto)),
+        modeManager(modeManager), display(display), phaseConfig(phaseConfig),
+        autoMode(north, south, east, west, display, phaseConfig, modeNameFor(TrafficMode::Auto)),
         nightMode(north, south, east, west, display, modeNameFor(TrafficMode::Night)),
         priorityNSMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityNS)),
         priorityEWMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityEW)),
@@ -732,6 +825,7 @@ private:
   RoadApproach &west;
   ModeManager &modeManager;
   DisplayManager &display;
+  PhaseConfig &phaseConfig;
 
   // Owned strategy instances (value members — no heap).
   AutoMode autoMode;
@@ -791,8 +885,8 @@ public:
 
 class MqttClientManager {
 public:
-  MqttClientManager(ModeManager &modeManager, IntersectionController &controller)
-      : modeManager(modeManager), controller(controller), mqtt(wifiClient) {}
+  MqttClientManager(ModeManager &modeManager, IntersectionController &controller, PhaseConfig &phaseConfig)
+      : modeManager(modeManager), controller(controller), phaseConfig(phaseConfig), mqtt(wifiClient) {}
 
   void begin() {
     WiFi.mode(WIFI_STA);
@@ -838,6 +932,7 @@ public:
 private:
   ModeManager &modeManager;
   IntersectionController &controller;
+  PhaseConfig &phaseConfig;
   BoundedWiFiClient wifiClient;
   PubSubClient mqtt;
   String clientId;
@@ -907,6 +1002,29 @@ private:
       body += static_cast<char>(payload[index]);
     }
     body.trim();
+
+    // SET_PHASE_CONFIG: { "phase": "NS_GREEN", "durationSeconds": 12 }
+    // Recognized BEFORE mode parsing because the payload shape overlaps
+    // (also has a "command" field in some clients).
+    String phaseName = extractJsonString(body, "phase");
+    String durStr = extractJsonString(body, "durationSeconds");
+    if (phaseName.length() > 0 && durStr.length() > 0) {
+      uint8_t idx = phaseToIndex(phaseName);
+      uint8_t secs = static_cast<uint8_t>(durStr.toInt());
+      int commandId = extractJsonInt(body, "commandId");
+      if (phaseConfig.setDuration(idx, secs)) {
+        publishAck(commandId, "SET_PHASE_CONFIG", "acknowledged", "Phase duration updated");
+      } else {
+        publishAck(commandId, "SET_PHASE_CONFIG", "rejected", "Invalid phase or duration");
+      }
+      Serial.print("MQTT command on ");
+      Serial.print(topic);
+      Serial.print(": SET_PHASE_CONFIG phase=");
+      Serial.print(phaseName);
+      Serial.print(" duration=");
+      Serial.println(secs);
+      return;
+    }
 
     String command = extractJsonString(body, "command");
     if (command.length() == 0) {
@@ -1103,6 +1221,15 @@ private:
     payload += "\"uptimeMs\":";
     payload += String(millis());
   }
+
+  // Map phase code -> PhaseConfig index. Returns 255 (PHASE_COUNT) on miss.
+  static uint8_t phaseToIndex(const String &phase) {
+    if (phase == "NS_GREEN")  return PhaseConfig::NS_GREEN_IDX;
+    if (phase == "NS_YELLOW") return PhaseConfig::NS_YELLOW_IDX;
+    if (phase == "EW_GREEN")  return PhaseConfig::EW_GREEN_IDX;
+    if (phase == "EW_YELLOW") return PhaseConfig::EW_YELLOW_IDX;
+    return PhaseConfig::PHASE_COUNT;  // sentinel for "invalid"
+  }
 };
 
 MqttClientManager *MqttClientManager::instance = nullptr;
@@ -1117,12 +1244,14 @@ RoadApproach eastApproach("EAST", "East approach", eastLight);
 RoadApproach westApproach("WEST", "West approach", westLight);
 ModeManager modeManager;
 DisplayManager display;
-IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display);
-MqttClientManager mqttManager(modeManager, controller);
+PhaseConfig phaseConfig;
+IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display, phaseConfig);
+MqttClientManager mqttManager(modeManager, controller, phaseConfig);
 
 void setup() {
   modeManager.begin();
   display.begin();
+  phaseConfig.begin();
   controller.begin();
   mqttManager.begin();
 }
