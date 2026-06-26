@@ -16,6 +16,10 @@ const uint8_t BTN_AUTO = 26;
 const uint8_t BTN_NIGHT = 27;
 const uint8_t BTN_PRIORITY = 32;
 const uint8_t BTN_EMERGENCY = 33;
+const uint8_t PED_N = 4;
+const uint8_t PED_S = 5;
+const uint8_t PED_E = 12;
+const uint8_t PED_W = 13;
 }
 
 namespace MqttConfig {
@@ -127,6 +131,25 @@ private:
   const char *code;
   const char *name;
   TrafficLight &light;
+};
+
+// Single-LED pedestrian signal (W5). Only a green walk indicator;
+// off = don't walk.
+class PedestrianSignal {
+public:
+  PedestrianSignal(uint8_t greenPin) : greenPin(greenPin) {}
+
+  void begin() {
+    pinMode(greenPin, OUTPUT);
+    turnOff();
+  }
+
+  void showWalk()  { digitalWrite(greenPin, HIGH); }
+  void showStop()  { digitalWrite(greenPin, LOW); }
+  void turnOff()   { digitalWrite(greenPin, LOW); }
+
+private:
+  uint8_t greenPin;
 };
 
 class ModeManager {
@@ -516,23 +539,55 @@ public:
 class AutoMode : public IModeStrategy {
 public:
   AutoMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
-           DisplayManager &display, PhaseConfig &phaseConfig, const char *modeName)
+           DisplayManager &display, PhaseConfig &phaseConfig,
+           PedestrianSignal &pedN, PedestrianSignal &pedS,
+           PedestrianSignal &pedE, PedestrianSignal &pedW,
+           EventLog &eventLog, const char *modeName)
       : north(n), south(s), east(e), west(w),
-        display(display), phaseConfig(phaseConfig), modeName(modeName) {}
+        display(display), phaseConfig(phaseConfig),
+        pedN(pedN), pedS(pedS), pedE(pedE), pedW(pedW),
+        eventLog(eventLog), modeName(modeName) {}
 
   void enter() override {
     currentPhase = 0;
+    cycleCounter = 0;
+    inPedestrianPhase = false;
     phaseStartedMs = millis();
     applyCurrent();
   }
 
   void tick() override {
     unsigned long nowMs = millis();
+
+    // W5: pedestrian phase — all vehicle lights red, all ped lights green.
+    if (inPedestrianPhase) {
+      unsigned long pedElapsedMs = nowMs - pedStartedMs;
+      if (pedElapsedMs >= pedDurationMs()) {
+        exitPedestrianPhase();
+        currentPhase = 0;  // resume at NS_GREEN
+        phaseStartedMs = nowMs;
+        applyCurrent();
+        return;
+      }
+      int remaining = static_cast<int>((pedDurationMs() - pedElapsedMs + 999UL) / 1000UL);
+      display.showStatus(modeName, "PEDESTRIAN", remaining);
+      return;
+    }
+
     unsigned long elapsedMs = nowMs - phaseStartedMs;
     uint8_t durationSec = phaseConfig.getDuration(currentPhase);
     unsigned long durationMs = static_cast<unsigned long>(durationSec) * 1000UL;
 
     if (elapsedMs >= durationMs) {
+      // W5: after EW_YELLOW completes, decide whether to insert a pedestrian
+      // phase. cycleCounter counts complete NS+EW rounds.
+      if (currentPhase == EW_YELLOW_IDX) {
+        cycleCounter++;
+        if (cycleCounter >= PEDESTRIAN_CYCLE_INTERVAL) {
+          enterPedestrianPhase();
+          return;
+        }
+      }
       currentPhase = (currentPhase + 1) % PhaseConfig::PHASE_COUNT;
       phaseStartedMs = nowMs;
       applyCurrent();
@@ -544,10 +599,15 @@ public:
   }
 
   const char *phaseCode() const override {
-    return META[currentPhase].code;
+    return inPedestrianPhase ? "PEDESTRIAN" : META[currentPhase].code;
   }
 
   int remainingSeconds() const override {
+    if (inPedestrianPhase) {
+      unsigned long elapsed = millis() - pedStartedMs;
+      if (elapsed >= pedDurationMs()) return 0;
+      return static_cast<int>((pedDurationMs() - elapsed + 999UL) / 1000UL);
+    }
     uint8_t durationSec = phaseConfig.getDuration(currentPhase);
     unsigned long elapsedMs = millis() - phaseStartedMs;
     unsigned long durationMs = static_cast<unsigned long>(durationSec) * 1000UL;
@@ -559,6 +619,13 @@ public:
 
   void getLightColors(LightColor &n, LightColor &s,
                       LightColor &e, LightColor &w) const override {
+    if (inPedestrianPhase) {
+      n = LightColor::Red;
+      s = LightColor::Red;
+      e = LightColor::Red;
+      w = LightColor::Red;
+      return;
+    }
     n = META[currentPhase].n;
     s = META[currentPhase].s;
     e = META[currentPhase].e;
@@ -566,16 +633,26 @@ public:
   }
 
   const char *displayLine() const override {
-    return META[currentPhase].name;
+    return inPedestrianPhase ? "PEDESTRIAN" : META[currentPhase].name;
   }
 
 private:
+  // W5: pedestrian phase parameters.
+  static constexpr uint8_t PEDESTRIAN_DURATION_SEC = 8;
+  static constexpr uint8_t PEDESTRIAN_CYCLE_INTERVAL = 3;
+  static constexpr uint8_t EW_YELLOW_IDX = 3;
+
   RoadApproach &north;
   RoadApproach &south;
   RoadApproach &east;
   RoadApproach &west;
   DisplayManager &display;
   PhaseConfig &phaseConfig;
+  PedestrianSignal &pedN;
+  PedestrianSignal &pedS;
+  PedestrianSignal &pedE;
+  PedestrianSignal &pedW;
+  EventLog &eventLog;
   const char *modeName;
 
   // Static metadata: code/name + light colors per phase. Durations come
@@ -593,6 +670,37 @@ private:
 
   uint8_t currentPhase = 0;
   unsigned long phaseStartedMs = 0;
+
+  // W5 pedestrian sub-state.
+  bool inPedestrianPhase = false;
+  uint8_t cycleCounter = 0;
+  unsigned long pedStartedMs = 0;
+
+  static unsigned long pedDurationMs() {
+    return static_cast<unsigned long>(PEDESTRIAN_DURATION_SEC) * 1000UL;
+  }
+
+  void enterPedestrianPhase() {
+    inPedestrianPhase = true;
+    pedStartedMs = millis();
+    // Turn all vehicle lights red explicitly (META-driven but be safe).
+    applyColors(LightColor::Red, LightColor::Red, LightColor::Red, LightColor::Red);
+    pedN.showWalk();
+    pedS.showWalk();
+    pedE.showWalk();
+    pedW.showWalk();
+    eventLog.add(EventLog::Level::Info, "PEDESTRIAN phase started");
+  }
+
+  void exitPedestrianPhase() {
+    inPedestrianPhase = false;
+    cycleCounter = 0;
+    pedN.turnOff();
+    pedS.turnOff();
+    pedE.turnOff();
+    pedW.turnOff();
+    eventLog.add(EventLog::Level::Info, "PEDESTRIAN phase ended");
+  }
 
   void applyCurrent() {
     applyColors(META[currentPhase].n, META[currentPhase].s,
@@ -848,10 +956,14 @@ public:
   IntersectionController(RoadApproach &north, RoadApproach &south, RoadApproach &east, RoadApproach &west,
                          ModeManager &modeManager,
                          DisplayManager &display,
-                         PhaseConfig &phaseConfig)
+                         PhaseConfig &phaseConfig,
+                         PedestrianSignal &pedN, PedestrianSignal &pedS,
+                         PedestrianSignal &pedE, PedestrianSignal &pedW,
+                         EventLog &eventLog)
       : north(north), south(south), east(east), west(west),
         modeManager(modeManager), display(display), phaseConfig(phaseConfig),
-        autoMode(north, south, east, west, display, phaseConfig, modeNameFor(TrafficMode::Auto)),
+        pedN(pedN), pedS(pedS), pedE(pedE), pedW(pedW), eventLog(eventLog),
+        autoMode(north, south, east, west, display, phaseConfig, pedN, pedS, pedE, pedW, eventLog, modeNameFor(TrafficMode::Auto)),
         nightMode(north, south, east, west, display, modeNameFor(TrafficMode::Night)),
         priorityNSMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityNS)),
         priorityEWMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityEW)),
@@ -896,6 +1008,13 @@ public:
     if (modeManager.update()) {
       IModeStrategy *next = strategies[static_cast<int>(modeManager.getMode())];
       if (next != _current) {
+        // W5: when leaving AutoMode, force all pedestrian LEDs off so they
+        // don't stay lit while the next mode runs. AutoMode will re-light
+        // them when it next reaches its pedestrian sub-state.
+        pedN.turnOff();
+        pedS.turnOff();
+        pedE.turnOff();
+        pedW.turnOff();
         _current = next;
         _current->enter();
       }
@@ -914,6 +1033,11 @@ private:
   ModeManager &modeManager;
   DisplayManager &display;
   PhaseConfig &phaseConfig;
+  PedestrianSignal &pedN;
+  PedestrianSignal &pedS;
+  PedestrianSignal &pedE;
+  PedestrianSignal &pedW;
+  EventLog &eventLog;
 
   // Owned strategy instances (value members — no heap).
   AutoMode autoMode;
@@ -1426,13 +1550,21 @@ ModeManager modeManager;
 DisplayManager display;
 PhaseConfig phaseConfig;
 EventLog eventLog;
-IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display, phaseConfig);
-MqttClientManager mqttManager(modeManager, controller, phaseConfig);
+PedestrianSignal pN(Pins::PED_N);
+PedestrianSignal pS(Pins::PED_S);
+PedestrianSignal pE(Pins::PED_E);
+PedestrianSignal pW(Pins::PED_W);
+IntersectionController controller(northApproach, southApproach, eastApproach, westApproach, modeManager, display, phaseConfig, pN, pS, pE, pW, eventLog);
+MqttClientManager mqttManager(modeManager, controller, phaseConfig, eventLog);
 
 void setup() {
   modeManager.begin();
   display.begin();
   phaseConfig.begin();
+  pN.begin();
+  pS.begin();
+  pE.begin();
+  pW.begin();
   controller.begin();
   mqttManager.begin();
   eventLog.add(EventLog::Level::Info, "Boot complete");

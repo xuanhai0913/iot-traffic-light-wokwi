@@ -23,6 +23,11 @@
     { "type": "wokwi-led", "id": "wYellow", "top": 60, "left": -206, "attrs": { "color": "yellow", "label": "W YEL" } },
     { "type": "wokwi-led", "id": "wGreen", "top": 100, "left": -206, "attrs": { "color": "green", "label": "W GRN" } },
 
+    { "type": "wokwi-led", "id": "pNGrn", "top": -100, "left": 162, "attrs": { "color": "green", "label": "PED N" } },
+    { "type": "wokwi-led", "id": "pSGrn", "top": 160, "left": 162, "attrs": { "color": "green", "label": "PED S" } },
+    { "type": "wokwi-led", "id": "pEGrn", "top": 60, "left": 320, "attrs": { "color": "green", "label": "PED E" } },
+    { "type": "wokwi-led", "id": "pWGrn", "top": 60, "left": -256, "attrs": { "color": "green", "label": "PED W" } },
+
     { "type": "wokwi-resistor", "id": "rNRed", "top": -140, "left": 42, "attrs": { "value": "220" } },
     { "type": "wokwi-resistor", "id": "rNYellow", "top": -140, "left": 82, "attrs": { "value": "220" } },
     { "type": "wokwi-resistor", "id": "rNGreen", "top": -140, "left": 122, "attrs": { "value": "220" } },
@@ -35,6 +40,11 @@
     { "type": "wokwi-resistor", "id": "rWRed", "top": 20, "left": -158, "rotate": 90, "attrs": { "value": "220" } },
     { "type": "wokwi-resistor", "id": "rWYellow", "top": 60, "left": -158, "rotate": 90, "attrs": { "value": "220" } },
     { "type": "wokwi-resistor", "id": "rWGreen", "top": 100, "left": -158, "rotate": 90, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-resistor", "id": "rPN", "top": -100, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rPS", "top": 160, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rPE", "top": 60, "left": 300, "rotate": 90, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rPW", "top": 60, "left": -228, "rotate": 90, "attrs": { "value": "220" } },
 
     { "type": "wokwi-pushbutton", "id": "btnAuto", "top": 310, "left": -308, "attrs": { "color": "green", "label": "AUTO" } },
     { "type": "wokwi-pushbutton", "id": "btnNight", "top": 310, "left": -210, "attrs": { "color": "yellow", "label": "NIGHT" } },
@@ -81,6 +91,19 @@
     [ "esp:25", "rWGreen:1", "green", [] ],
     [ "rWGreen:2", "wGreen:A", "green", [] ],
     [ "wGreen:C", "esp:GND.2", "black", [] ],
+
+    [ "esp:4", "rPN:1", "green", [] ],
+    [ "rPN:2", "pNGrn:A", "green", [] ],
+    [ "pNGrn:C", "esp:GND.2", "black", [] ],
+    [ "esp:5", "rPS:1", "green", [] ],
+    [ "rPS:2", "pSGrn:A", "green", [] ],
+    [ "pSGrn:C", "esp:GND.2", "black", [] ],
+    [ "esp:12", "rPE:1", "green", [] ],
+    [ "rPE:2", "pEGrn:A", "green", [] ],
+    [ "pEGrn:C", "esp:GND.2", "black", [] ],
+    [ "esp:13", "rPW:1", "green", [] ],
+    [ "rPW:2", "pWGrn:A", "green", [] ],
+    [ "pWGrn:C", "esp:GND.2", "black", [] ],
 
     [ "lcd:GND", "esp:GND.1", "black", [] ],
     [ "lcd:VCC", "esp:5V", "red", [] ],
