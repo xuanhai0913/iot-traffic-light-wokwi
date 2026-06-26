@@ -350,6 +350,256 @@ private:
   }
 };
 
+// --- State pattern: each TrafficMode is an IModeStrategy instance ---
+// IntersectionController holds 5 strategies and dispatches update() to the
+// current one. Adding a new mode = add a strategy class + add to the
+// strategies[] array in the controller constructor.
+
+class IModeStrategy {
+public:
+  virtual ~IModeStrategy() = default;
+
+  // Called once when this strategy becomes active (after a mode change).
+  // Implementations should reset their internal timers and apply initial
+  // light colors.
+  virtual void enter() = 0;
+
+  // Called every loop() while this strategy is active.
+  // Implementations should update lights and the LCD.
+  virtual void tick() = 0;
+
+  // Status payload helpers (used by MqttClientManager::publishStatus).
+  virtual const char *phaseCode() const = 0;
+  virtual int remainingSeconds() const = 0;       // -1 = no countdown
+  virtual void getLightColors(LightColor &n, LightColor &s,
+                              LightColor &e, LightColor &w) const = 0;
+
+  // LCD line 2 text (without mode name; DisplayManager adds modeName + remaining).
+  virtual const char *displayLine() const = 0;
+};
+
+class AutoMode : public IModeStrategy {
+public:
+  AutoMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+           DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    currentPhase = 0;
+    phaseStartedMs = millis();
+    applyCurrent();
+  }
+
+  void tick() override {
+    const TrafficPhase &phase = phases[currentPhase];
+    unsigned long nowMs = millis();
+    unsigned long elapsedMs = nowMs - phaseStartedMs;
+    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
+
+    if (elapsedMs >= durationMs) {
+      currentPhase = (currentPhase + 1) % 4;
+      phaseStartedMs = nowMs;
+      applyCurrent();
+      return;
+    }
+
+    int remaining = static_cast<int>((durationMs - elapsedMs + 999UL) / 1000UL);
+    display.showStatus(modeName, phase.name, remaining);
+  }
+
+  const char *phaseCode() const override {
+    return phases[currentPhase].code;
+  }
+
+  int remainingSeconds() const override {
+    const TrafficPhase &phase = phases[currentPhase];
+    unsigned long elapsedMs = millis() - phaseStartedMs;
+    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
+    if (elapsedMs >= durationMs) {
+      return 0;
+    }
+    return static_cast<int>((durationMs - elapsedMs + 999UL) / 1000UL);
+  }
+
+  void getLightColors(LightColor &n, LightColor &s,
+                      LightColor &e, LightColor &w) const override {
+    const TrafficPhase &phase = phases[currentPhase];
+    n = phase.northColor;
+    s = phase.southColor;
+    e = phase.eastColor;
+    w = phase.westColor;
+  }
+
+  const char *displayLine() const override {
+    return phases[currentPhase].name;
+  }
+
+private:
+  RoadApproach &north;
+  RoadApproach &south;
+  RoadApproach &east;
+  RoadApproach &west;
+  DisplayManager &display;
+  const char *modeName;
+
+  // Phase durations live here (not in IntersectionController) so W2 can
+  // override them via EEPROM/MQTT without touching the controller.
+  const TrafficPhase phases[4] = {
+      {"NS_GREEN",  "NS GREEN",  LightColor::Green,  LightColor::Green,  LightColor::Red, LightColor::Red, 8},
+      {"NS_YELLOW", "NS YELLOW", LightColor::Yellow, LightColor::Yellow, LightColor::Red, LightColor::Red, 3},
+      {"EW_GREEN",  "EW GREEN",  LightColor::Red,    LightColor::Red,    LightColor::Green, LightColor::Green, 8},
+      {"EW_YELLOW", "EW YELLOW", LightColor::Red,    LightColor::Red,    LightColor::Yellow, LightColor::Yellow, 3},
+  };
+
+  uint8_t currentPhase = 0;
+  unsigned long phaseStartedMs = 0;
+
+  void applyCurrent() {
+    const TrafficPhase &phase = phases[currentPhase];
+    applyColors(phase.northColor, phase.southColor, phase.eastColor, phase.westColor);
+  }
+
+  void applyColors(LightColor n, LightColor s, LightColor e, LightColor w) {
+    north.show(n);
+    south.show(s);
+    east.show(e);
+    west.show(w);
+  }
+};
+
+class NightMode : public IModeStrategy {
+public:
+  NightMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+            DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    blinkMs = millis();
+    yellowOn = false;
+    applyAll(LightColor::Off);
+  }
+
+  void tick() override {
+    if (millis() - blinkMs >= 500) {
+      blinkMs = millis();
+      yellowOn = !yellowOn;
+      applyAll(yellowOn ? LightColor::Yellow : LightColor::Off);
+    }
+    display.showStatus(modeName, yellowOn ? "YELLOW ON" : "YELLOW OFF", -1);
+  }
+
+  const char *phaseCode() const override { return "YELLOW_BLINK"; }
+  int remainingSeconds() const override { return -1; }
+
+  void getLightColors(LightColor &n, LightColor &s,
+                      LightColor &e, LightColor &w) const override {
+    n = yellowOn ? LightColor::Yellow : LightColor::Off;
+    s = n; e = n; w = n;
+  }
+
+  const char *displayLine() const override {
+    return yellowOn ? "YELLOW ON" : "YELLOW OFF";
+  }
+
+private:
+  RoadApproach &north, &south, &east, &west;
+  DisplayManager &display;
+  const char *modeName;
+  unsigned long blinkMs = 0;
+  bool yellowOn = false;
+
+  void applyAll(LightColor c) {
+    north.show(c); south.show(c); east.show(c); west.show(c);
+  }
+};
+
+class PriorityNSMode : public IModeStrategy {
+public:
+  PriorityNSMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+                 DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    north.show(LightColor::Green);
+    south.show(LightColor::Green);
+    east.show(LightColor::Red);
+    west.show(LightColor::Red);
+  }
+  void tick() override {
+    display.showStatus(modeName, "NS GO", -1);
+  }
+  const char *phaseCode() const override { return "NS_PRIORITY"; }
+  int remainingSeconds() const override { return -1; }
+  void getLightColors(LightColor &n, LightColor &s, LightColor &e, LightColor &w) const override {
+    n = LightColor::Green; s = LightColor::Green;
+    e = LightColor::Red;   w = LightColor::Red;
+  }
+  const char *displayLine() const override { return "NS GO"; }
+
+private:
+  RoadApproach &north, &south, &east, &west;
+  DisplayManager &display;
+  const char *modeName;
+};
+
+class PriorityEWMode : public IModeStrategy {
+public:
+  PriorityEWMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+                 DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    north.show(LightColor::Red);
+    south.show(LightColor::Red);
+    east.show(LightColor::Green);
+    west.show(LightColor::Green);
+  }
+  void tick() override {
+    display.showStatus(modeName, "EW GO", -1);
+  }
+  const char *phaseCode() const override { return "EW_PRIORITY"; }
+  int remainingSeconds() const override { return -1; }
+  void getLightColors(LightColor &n, LightColor &s, LightColor &e, LightColor &w) const override {
+    n = LightColor::Red;    s = LightColor::Red;
+    e = LightColor::Green;  w = LightColor::Green;
+  }
+  const char *displayLine() const override { return "EW GO"; }
+
+private:
+  RoadApproach &north, &south, &east, &west;
+  DisplayManager &display;
+  const char *modeName;
+};
+
+class EmergencyMode : public IModeStrategy {
+public:
+  EmergencyMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+                DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    north.show(LightColor::Red);
+    south.show(LightColor::Red);
+    east.show(LightColor::Red);
+    west.show(LightColor::Red);
+  }
+  void tick() override {
+    display.showStatus(modeName, "ALL RED", -1);
+  }
+  const char *phaseCode() const override { return "ALL_RED"; }
+  int remainingSeconds() const override { return -1; }
+  void getLightColors(LightColor &n, LightColor &s, LightColor &e, LightColor &w) const override {
+    n = LightColor::Red; s = LightColor::Red;
+    e = LightColor::Red; w = LightColor::Red;
+  }
+  const char *displayLine() const override { return "ALL RED"; }
+
+private:
+  RoadApproach &north, &south, &east, &west;
+  DisplayManager &display;
+  const char *modeName;
+};
+
 class DisplayManager {
 public:
   void begin() {
@@ -419,90 +669,63 @@ public:
   IntersectionController(RoadApproach &north, RoadApproach &south, RoadApproach &east, RoadApproach &west,
                          ModeManager &modeManager,
                          DisplayManager &display)
-      : north(north), south(south), east(east), west(west), modeManager(modeManager), display(display) {}
+      : north(north), south(south), east(east), west(west),
+        modeManager(modeManager), display(display),
+        autoMode(north, south, east, west, display, modeNameFor(TrafficMode::Auto)),
+        nightMode(north, south, east, west, display, modeNameFor(TrafficMode::Night)),
+        priorityNSMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityNS)),
+        priorityEWMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityEW)),
+        emergencyMode(north, south, east, west, display, modeNameFor(TrafficMode::Emergency)),
+        strategies{&autoMode, &nightMode, &priorityNSMode, &priorityEWMode, &emergencyMode},
+        _current(&autoMode) {}
 
   void begin() {
     north.begin();
     south.begin();
     east.begin();
     west.begin();
-    phaseStartedMs = millis();
-    setAutoPhase(0);
+    _current->enter();
   }
 
   const char *phaseCode() const {
-    switch (modeManager.getMode()) {
-    case TrafficMode::Auto:
-      return phases[currentPhase].code;
-    case TrafficMode::Night:
-      return "YELLOW_BLINK";
-    case TrafficMode::PriorityNS:
-      return "NS_PRIORITY";
-    case TrafficMode::PriorityEW:
-      return "EW_PRIORITY";
-    case TrafficMode::Emergency:
-      return "ALL_RED";
-    }
-
-    return "UNKNOWN";
+    return _current->phaseCode();
   }
 
   int remainingSeconds() const {
-    if (modeManager.getMode() != TrafficMode::Auto) {
-      return -1;
-    }
-
-    const TrafficPhase &phase = phases[currentPhase];
-    unsigned long elapsedMs = millis() - phaseStartedMs;
-    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
-    if (elapsedMs >= durationMs) {
-      return 0;
-    }
-
-    return static_cast<int>((durationMs - elapsedMs + 999UL) / 1000UL);
+    return _current->remainingSeconds();
   }
 
   LightColor northLightColor() const {
-    return northState;
+    return cachedNorth;
   }
 
   LightColor southLightColor() const {
-    return southState;
+    return cachedSouth;
   }
 
   LightColor eastLightColor() const {
-    return eastState;
+    return cachedEast;
   }
 
   LightColor westLightColor() const {
-    return westState;
+    return cachedWest;
   }
 
   void update() {
     if (modeManager.update()) {
-      resetForMode();
+      IModeStrategy *next = strategies[static_cast<int>(modeManager.getMode())];
+      if (next != _current) {
+        _current = next;
+        _current->enter();
+      }
     }
-
-    switch (modeManager.getMode()) {
-    case TrafficMode::Auto:
-      runAuto();
-      break;
-    case TrafficMode::Night:
-      runNight();
-      break;
-    case TrafficMode::PriorityNS:
-      runPriority(true);
-      break;
-    case TrafficMode::PriorityEW:
-      runPriority(false);
-      break;
-    case TrafficMode::Emergency:
-      runEmergency();
-      break;
-    }
+    _current->getLightColors(cachedNorth, cachedSouth, cachedEast, cachedWest);
+    _current->tick();
   }
 
 private:
+  // References must be declared BEFORE the strategy instances that bind them,
+  // because C++ initializes members in declaration order.
   RoadApproach &north;
   RoadApproach &south;
   RoadApproach &east;
@@ -510,102 +733,31 @@ private:
   ModeManager &modeManager;
   DisplayManager &display;
 
-  const TrafficPhase phases[4] = {
-      {"NS_GREEN", "NS GREEN", LightColor::Green, LightColor::Green, LightColor::Red, LightColor::Red, 8},
-      {"NS_YELLOW", "NS YELLOW", LightColor::Yellow, LightColor::Yellow, LightColor::Red, LightColor::Red, 3},
-      {"EW_GREEN", "EW GREEN", LightColor::Red, LightColor::Red, LightColor::Green, LightColor::Green, 8},
-      {"EW_YELLOW", "EW YELLOW", LightColor::Red, LightColor::Red, LightColor::Yellow, LightColor::Yellow, 3},
-  };
+  // Owned strategy instances (value members — no heap).
+  AutoMode autoMode;
+  NightMode nightMode;
+  PriorityNSMode priorityNSMode;
+  PriorityEWMode priorityEWMode;
+  EmergencyMode emergencyMode;
 
-  uint8_t currentPhase = 0;
-  unsigned long phaseStartedMs = 0;
-  unsigned long nightBlinkMs = 0;
-  bool nightYellowOn = false;
-  LightColor northState = LightColor::Off;
-  LightColor southState = LightColor::Off;
-  LightColor eastState = LightColor::Off;
-  LightColor westState = LightColor::Off;
+  IModeStrategy *strategies[5];
+  IModeStrategy *_current;
 
-  void resetForMode() {
-    turnAllOff();
-    phaseStartedMs = millis();
-    nightBlinkMs = millis();
-    nightYellowOn = false;
+  // Cached colors queried by MqttClientManager::publishStatus.
+  LightColor cachedNorth = LightColor::Off;
+  LightColor cachedSouth = LightColor::Off;
+  LightColor cachedEast = LightColor::Off;
+  LightColor cachedWest = LightColor::Off;
 
-    if (modeManager.getMode() == TrafficMode::Auto) {
-      setAutoPhase(0);
+  const char *modeNameFor(TrafficMode mode) {
+    switch (mode) {
+    case TrafficMode::Auto:        return "AUTO";
+    case TrafficMode::Night:       return "NIGHT";
+    case TrafficMode::PriorityNS:  return "PRIORITY NS";
+    case TrafficMode::PriorityEW:  return "PRIORITY EW";
+    case TrafficMode::Emergency:   return "EMERGENCY";
     }
-  }
-
-  void runAuto() {
-    const TrafficPhase &phase = phases[currentPhase];
-    unsigned long elapsedMs = millis() - phaseStartedMs;
-    unsigned long durationMs = static_cast<unsigned long>(phase.durationSeconds) * 1000UL;
-
-    if (elapsedMs >= durationMs) {
-      setAutoPhase((currentPhase + 1) % 4);
-      return;
-    }
-
-    int remainingSeconds = static_cast<int>((durationMs - elapsedMs + 999UL) / 1000UL);
-    display.showStatus(modeManager.modeName(), phase.name, remainingSeconds);
-  }
-
-  void runNight() {
-    if (millis() - nightBlinkMs >= 500) {
-      nightBlinkMs = millis();
-      nightYellowOn = !nightYellowOn;
-      applyAll(nightYellowOn ? LightColor::Yellow : LightColor::Off);
-    }
-
-    display.showStatus(modeManager.modeName(), nightYellowOn ? "YELLOW ON" : "YELLOW OFF", -1);
-  }
-
-  void runPriority(bool northSouthPriority) {
-    applyColors(
-        northSouthPriority ? LightColor::Green : LightColor::Red,
-        northSouthPriority ? LightColor::Green : LightColor::Red,
-        northSouthPriority ? LightColor::Red : LightColor::Green,
-        northSouthPriority ? LightColor::Red : LightColor::Green);
-    display.showStatus(modeManager.modeName(), northSouthPriority ? "NS GO" : "EW GO", -1);
-  }
-
-  void runEmergency() {
-    applyAll(LightColor::Red);
-    display.showStatus(modeManager.modeName(), "ALL RED", -1);
-  }
-
-  void setAutoPhase(uint8_t nextPhase) {
-    currentPhase = nextPhase;
-    phaseStartedMs = millis();
-    const TrafficPhase &phase = phases[currentPhase];
-    applyColors(phase.northColor, phase.southColor, phase.eastColor, phase.westColor);
-  }
-
-  void applyColors(LightColor northColor, LightColor southColor, LightColor eastColor, LightColor westColor) {
-    northState = northColor;
-    southState = southColor;
-    eastState = eastColor;
-    westState = westColor;
-    north.show(northColor);
-    south.show(southColor);
-    east.show(eastColor);
-    west.show(westColor);
-  }
-
-  void applyAll(LightColor color) {
-    applyColors(color, color, color, color);
-  }
-
-  void turnAllOff() {
-    northState = LightColor::Off;
-    southState = LightColor::Off;
-    eastState = LightColor::Off;
-    westState = LightColor::Off;
-    north.turnOff();
-    south.turnOff();
-    east.turnOff();
-    west.turnOff();
+    return "UNKNOWN";
   }
 };
 
