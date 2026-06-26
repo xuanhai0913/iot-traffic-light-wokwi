@@ -9,12 +9,12 @@ void main() {
     await tester.pumpWidget(const TrafficOperatorApp());
     await tester.pump();
 
-    expect(find.text('IoT Traffic Light'), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Điều khiển'), findsOneWidget);
   });
 
   testWidgets(
-      'StatusBanner shows the offline warning icon until backend responds',
+      'device badge renders while backend connection is pending',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const TrafficOperatorApp());
@@ -23,7 +23,7 @@ void main() {
     // to depend on the network.
     await tester.pump();
 
-    expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+    expect(find.textContaining('TrafficLight-01'), findsOneWidget);
     // The old inline message must be gone.
     expect(find.text('Mất kết nối backend'), findsNothing);
   });
@@ -45,22 +45,17 @@ void main() {
     await tester.pumpWidget(const TrafficOperatorApp());
     await tester.pump();
 
-    // The bootstrap network call eventually sets online=false so the
-    // dashboard shows the default mode (AUTO) on the ControlView.
-    await tester.tap(find.text('Control'));
-    await tester.pump();
-
-    // All five command buttons render with their labels.
-    expect(find.widgetWithText(FilledButton, 'AUTO'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'NIGHT'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'PRIORITY NS'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'PRIORITY EW'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'EMERGENCY'), findsOneWidget);
+    // The first tab is the control dashboard.
+    expect(find.widgetWithText(FilledButton, 'Auto'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Night'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Stop'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'NS'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'EW'), findsOneWidget);
 
     // Before any tap, no per-button progress indicators should be present.
     expect(
       find.descendant(
-        of: find.widgetWithText(FilledButton, 'AUTO'),
+        of: find.widgetWithText(FilledButton, 'Auto'),
         matching: find.byType(CircularProgressIndicator),
       ),
       findsNothing,

@@ -10,6 +10,21 @@ void main() {
   runApp(const TrafficOperatorApp());
 }
 
+class AppColors {
+  static const background = Color(0xFF121212);
+  static const surface = Color(0xFF1E1E1E);
+  static const surface2 = Color(0xFF2C2C2C);
+  static const foreground = Color(0xFFFFFFFF);
+  static const foreground2 = Color(0xFFA0A0A0);
+  static const muted = Color(0xFF666666);
+  static const glass = Color(0x0DFFFFFF);
+  static const glassBorder = Color(0x12FFFFFF);
+  static const accent = Color(0xFF0071E3);
+  static const danger = Color(0xFFFF3B30);
+  static const warn = Color(0xFFFFCC00);
+  static const success = Color(0xFF34C759);
+}
+
 class TrafficOperatorApp extends StatefulWidget {
   const TrafficOperatorApp({super.key});
 
@@ -35,26 +50,52 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F7A5B),
-          brightness: Brightness.light,
-        ).copyWith(surface: Colors.white),
-        scaffoldBackgroundColor: const Color(0xFFF3F5F7),
+          seedColor: AppColors.accent,
+          brightness: Brightness.dark,
+        ).copyWith(
+          primary: AppColors.accent,
+          surface: AppColors.surface,
+          error: AppColors.danger,
+        ),
+        scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.foreground,
           surfaceTintColor: Colors.transparent,
         ),
-        navigationBarTheme: const NavigationBarThemeData(
-          backgroundColor: Colors.white,
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: AppColors.glass,
           surfaceTintColor: Colors.transparent,
+          indicatorColor: AppColors.accent.withValues(alpha: 0.16),
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => TextStyle(
+              color: states.contains(WidgetState.selected)
+                  ? AppColors.accent
+                  : AppColors.muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? AppColors.accent
+                  : AppColors.muted,
+            ),
+          ),
         ),
         cardTheme: const CardThemeData(
-          color: Colors.white,
+          color: AppColors.glass,
           elevation: 0,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(8)),
-            side: BorderSide(color: Color(0xFFDDE3DC)),
+            side: BorderSide(color: AppColors.glassBorder),
           ),
+        ),
+        textTheme: Typography.whiteMountainView.apply(
+          bodyColor: AppColors.foreground,
+          displayColor: AppColors.foreground,
         ),
       ),
       home: TrafficHomePage(messengerKey: _messengerKey),
@@ -89,7 +130,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   final Set<String> _runningActions = <String>{};
   bool online = false;
   bool skipDangerConfirm = false;
-  String selectedPage = 'dashboard';
+  String selectedPage = 'control';
 
   bool isRunning(String key) => _runningActions.contains(key);
   bool get anyLoading => _runningActions.isNotEmpty;
@@ -466,13 +507,14 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   @override
   Widget build(BuildContext context) {
     final content = switch (selectedPage) {
-      'dashboard' => DashboardView(snapshot: dashboard),
       'control' => ControlView(
+          snapshot: dashboard,
           currentMode: dashboard.status.modeCode,
           isRunning: isRunning,
           onCommand: sendCommand,
         ),
-      'manage' => ManageView(
+      'live' => LiveStatusView(snapshot: dashboard),
+      'schedule' => ManageView(
           phasePlans: dashboard.phasePlans,
           approaches: dashboard.approaches,
           isRunning: isRunning,
@@ -480,9 +522,8 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           onActivatePlan: activatePhasePlan,
           onUpdateApproach: updateApproach,
         ),
-      'history' =>
-        HistoryView(commands: dashboard.commands, logs: dashboard.logs),
-      'settings' => SettingsView(
+      'logs' => HistoryView(commands: dashboard.commands, logs: dashboard.logs),
+      'settings' => MobileSettingsView(
           controller: apiController,
           online: online,
           apiBase: api.baseUrl,
@@ -493,78 +534,720 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           onRefresh: refreshDashboard,
           onToggleSkipConfirm: toggleSkipConfirm,
         ),
-      _ => DashboardView(snapshot: dashboard),
+      _ => ControlView(
+          snapshot: dashboard,
+          currentMode: dashboard.status.modeCode,
+          isRunning: isRunning,
+          onCommand: sendCommand,
+        ),
     };
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('IoT Traffic Light'),
-        actions: [
-          ConnectionBadge(online: online, loading: anyLoading),
-          const SizedBox(width: 12),
-        ],
+      drawer: AppDrawer(
+        online: online,
+        selectedPage: selectedPage,
+        onSelect: (page) {
+          Navigator.of(context).pop();
+          setState(() {
+            selectedPage = page;
+          });
+        },
       ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: refreshDashboard,
+          color: AppColors.accent,
+          backgroundColor: AppColors.surface,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 88),
             children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1040),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      StatusBanner(online: online, status: connectionLabel),
-                      const SizedBox(height: 12),
-                      content,
-                    ],
-                  ),
+              AppHeader(
+                title: _pageTitle(selectedPage),
+                online: online,
+                loading: anyLoading,
+                onRefresh: () => refreshDashboard(force: true),
+              ),
+              const SizedBox(height: 8),
+              DeviceBadge(online: online, apiBase: api.baseUrl),
+              const SizedBox(height: 12),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                child: KeyedSubtree(
+                  key: ValueKey(selectedPage),
+                  child: content,
                 ),
               ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: ['dashboard', 'control', 'manage', 'history', 'settings']
-            .indexOf(selectedPage),
-        onDestinationSelected: (index) {
-          setState(() {
-            selectedPage = [
-              'dashboard',
-              'control',
-              'manage',
-              'history',
-              'settings'
-            ][index];
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Dashboard'),
-          NavigationDestination(
-              icon: Icon(Icons.tune_outlined),
-              selectedIcon: Icon(Icons.tune),
-              label: 'Control'),
-          NavigationDestination(
-              icon: Icon(Icons.account_tree_outlined),
-              selectedIcon: Icon(Icons.account_tree),
-              label: 'Manage'),
-          NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(Icons.history),
-              label: 'History'),
-          NavigationDestination(
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.glass,
+          border: Border(top: BorderSide(color: AppColors.glassBorder)),
+        ),
+        child: NavigationBar(
+          selectedIndex: switch (selectedPage) {
+            'live' => 1,
+            'schedule' => 2,
+            'settings' => 3,
+            _ => 0,
+          },
+          onDestinationSelected: (index) {
+            setState(() {
+              selectedPage = ['control', 'live', 'schedule', 'settings'][index];
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.radio_button_checked),
+              selectedIcon: Icon(Icons.radio_button_checked),
+              label: 'Điều khiển',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.verified_outlined),
+              selectedIcon: Icon(Icons.verified),
+              label: 'Trực tiếp',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.schedule_outlined),
+              selectedIcon: Icon(Icons.schedule),
+              label: 'Lịch',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings),
-              label: 'Settings'),
+              label: 'Cài đặt',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _pageTitle(String page) {
+    return switch (page) {
+      'control' => 'Dashboard',
+      'live' => 'Trạng thái',
+      'schedule' => 'Auto Cycle',
+      'logs' => 'Device Logs',
+      'settings' => 'Cài đặt & Trạng thái',
+      _ => 'Dashboard',
+    };
+  }
+}
+
+class AppHeader extends StatelessWidget {
+  const AppHeader({
+    required this.title,
+    required this.online,
+    required this.loading,
+    required this.onRefresh,
+    super.key,
+  });
+
+  final String title;
+  final bool online;
+  final bool loading;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu),
+            color: AppColors.accent,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+        ),
+        IconButton(
+          tooltip: loading ? 'Đang đồng bộ' : 'Làm mới',
+          onPressed: loading ? null : onRefresh,
+          icon: Icon(loading ? Icons.sync : Icons.settings_outlined),
+          color: online ? AppColors.foreground2 : AppColors.warn,
+        ),
+      ],
+    );
+  }
+}
+
+class DeviceBadge extends StatelessWidget {
+  const DeviceBadge({required this.online, required this.apiBase, super.key});
+
+  final bool online;
+  final String apiBase;
+
+  @override
+  Widget build(BuildContext context) {
+    final host = Uri.tryParse(apiBase)?.host ?? apiBase;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.glass,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PulseDot(color: online ? AppColors.success : AppColors.warn),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'TrafficLight-01 · $host',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.foreground2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppDrawer extends StatelessWidget {
+  const AppDrawer({
+    required this.online,
+    required this.selectedPage,
+    required this.onSelect,
+    super.key,
+  });
+
+  final bool online;
+  final String selectedPage;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TrafficLight-01',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      online ? '● Kết nối' : '● Ngoại tuyến',
+                      style: TextStyle(
+                        color: online ? AppColors.success : AppColors.warn,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              DrawerAction(
+                icon: Icons.description_outlined,
+                label: 'Phase Plans',
+                selected: selectedPage == 'schedule',
+                onTap: () => onSelect('schedule'),
+              ),
+              DrawerAction(
+                icon: Icons.monitor_heart_outlined,
+                label: 'Device Logs',
+                selected: selectedPage == 'logs',
+                onTap: () => onSelect('logs'),
+              ),
+              DrawerAction(
+                icon: Icons.chat_bubble_outline,
+                label: 'Commands Log',
+                selected: selectedPage == 'logs',
+                onTap: () => onSelect('logs'),
+              ),
+              DrawerAction(
+                icon: Icons.warning_amber_rounded,
+                label: 'Alerts',
+                selected: false,
+                onTap: () => onSelect('logs'),
+              ),
+              const Divider(color: AppColors.glassBorder, height: 24),
+              DrawerAction(
+                icon: Icons.help_outline,
+                label: 'Hướng dẫn',
+                selected: false,
+                onTap: () => onSelect('settings'),
+              ),
+              const Spacer(),
+              const Text(
+                'IoT Traffic Light',
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DrawerAction extends StatelessWidget {
+  const DrawerAction({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      selected: selected,
+      selectedTileColor: AppColors.glass,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      leading: Icon(icon, color: selected ? AppColors.accent : AppColors.foreground2),
+      title: Text(label),
+      onTap: onTap,
+    );
+  }
+}
+
+class GlassPanel extends StatelessWidget {
+  const GlassPanel({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.radius = 12,
+    super.key,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: AppColors.glass,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: child,
+    );
+  }
+}
+
+class PulseDot extends StatelessWidget {
+  const PulseDot({required this.color, this.size = 8, super.key});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
         ],
       ),
     );
+  }
+}
+
+class StatusStat extends StatelessWidget {
+  const StatusStat({
+    required this.label,
+    required this.value,
+    this.color = AppColors.foreground,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GlassPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        radius: 8,
+        child: Column(
+          children: [
+            Text(
+              label.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrafficLampStack extends StatelessWidget {
+  const TrafficLampStack({required this.activeColor, this.large = true, super.key});
+
+  final String activeColor;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = large ? 96.0 : 42.0;
+    return Container(
+      width: large ? 180 : 76,
+      padding: EdgeInsets.all(large ? 20 : 10),
+      decoration: BoxDecoration(
+        color: const Color(0xDD111111),
+        borderRadius: BorderRadius.circular(large ? 28 : 14),
+        border: Border.all(color: AppColors.surface2),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SignalLamp(color: 'RED', active: activeColor == 'RED', size: size),
+          SizedBox(height: large ? 12 : 6),
+          SignalLamp(
+              color: 'YELLOW', active: activeColor == 'YELLOW', size: size),
+          SizedBox(height: large ? 12 : 6),
+          SignalLamp(color: 'GREEN', active: activeColor == 'GREEN', size: size),
+        ],
+      ),
+    );
+  }
+}
+
+class SignalLamp extends StatelessWidget {
+  const SignalLamp({
+    required this.color,
+    required this.active,
+    required this.size,
+    super.key,
+  });
+
+  final String color;
+  final bool active;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = switch (color) {
+      'RED' => AppColors.danger,
+      'YELLOW' => AppColors.warn,
+      'GREEN' => AppColors.success,
+      _ => AppColors.muted,
+    };
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: active ? base : const Color(0xFF1A1A1A),
+        border: Border.all(
+          color: active ? base : AppColors.surface2,
+          width: 2,
+        ),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: base.withValues(alpha: 0.42),
+                  blurRadius: size * 0.34,
+                  spreadRadius: 2,
+                ),
+              ]
+            : const [],
+      ),
+    );
+  }
+}
+
+class ModeChip extends StatelessWidget {
+  const ModeChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: active,
+      onSelected: (_) => onTap(),
+      selectedColor: AppColors.accent,
+      backgroundColor: AppColors.glass,
+      side: BorderSide(
+        color: active ? AppColors.accent : AppColors.glassBorder,
+      ),
+      labelStyle: TextStyle(
+        color: active ? Colors.white : AppColors.foreground2,
+        fontWeight: FontWeight.w600,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+}
+
+class MiniCommandButton extends StatelessWidget {
+  const MiniCommandButton({
+    required this.modeCode,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.active,
+    required this.loading,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String modeCode;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool active;
+  final bool loading;
+  final Future<void> Function(String modeCode) onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: SizedBox(
+        height: 44,
+        child: FilledButton.icon(
+          onPressed: loading ? null : () => onPressed(modeCode),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            backgroundColor:
+                active ? color : AppColors.glass.withValues(alpha: 0.9),
+            foregroundColor: active ? Colors.white : AppColors.foreground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(
+                color: active ? color : AppColors.glassBorder,
+              ),
+            ),
+          ),
+          icon: loading
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(icon, size: 16),
+          label: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class LiveStatusView extends StatelessWidget {
+  const LiveStatusView({required this.snapshot, super.key});
+
+  final DashboardSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = snapshot.status;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Row(
+          children: [
+            PulseDot(color: AppColors.success),
+            SizedBox(width: 8),
+            Text('Đang hoạt động',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            SizedBox(width: 8),
+            _LiveBadge(text: '● MQTT'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.82,
+          children: ['NORTH', 'EAST', 'SOUTH', 'WEST']
+              .map((direction) => DirectionSignalCard(
+                    direction: direction,
+                    signal: _signalFor(status, direction),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 12),
+        GlassPanel(
+          child: Row(
+            children: [
+              StatusStat(label: 'Chu kỳ', value: modeLabel(status.modeCode)),
+              const SizedBox(width: 8),
+              StatusStat(
+                label: 'Còn lại',
+                value:
+                    status.remainingSeconds >= 0 ? '${status.remainingSeconds}s' : '--',
+              ),
+              const SizedBox(width: 8),
+              const StatusStat(
+                label: 'Nhiệt',
+                value: '32°C',
+                color: AppColors.foreground2,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static SignalStatus _signalFor(TrafficStatus status, String direction) {
+    return status.signals.firstWhere(
+      (signal) => signal.approach.toUpperCase() == direction,
+      orElse: () => SignalStatus(
+        approach: direction,
+        signal: '${direction}_MAIN',
+        color: 'OFF',
+      ),
+    );
+  }
+}
+
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.success,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class DirectionSignalCard extends StatelessWidget {
+  const DirectionSignalCard({required this.direction, required this.signal, super.key});
+
+  final String direction;
+  final SignalStatus signal;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      radius: 18,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          Text(
+            _directionLabel(direction),
+            style: const TextStyle(
+              color: AppColors.foreground2,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TrafficLampStack(activeColor: signal.color, large: false),
+          const SizedBox(height: 8),
+          Text(
+            signal.color,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const Spacer(),
+          const Text('● 75ms',
+              style: TextStyle(color: AppColors.success, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  String _directionLabel(String value) {
+    return switch (value) {
+      'NORTH' => '↑ Bắc',
+      'EAST' => '→ Đông',
+      'SOUTH' => '↓ Nam',
+      'WEST' => '← Tây',
+      _ => value,
+    };
   }
 }
 
@@ -603,68 +1286,174 @@ class DashboardView extends StatelessWidget {
 
 class ControlView extends StatelessWidget {
   const ControlView({
+    required this.snapshot,
     required this.currentMode,
     required this.isRunning,
     required this.onCommand,
     super.key,
   });
 
+  final DashboardSnapshot snapshot;
   final String currentMode;
   final bool Function(String key) isRunning;
   final Future<void> Function(String modeCode) onCommand;
 
   @override
   Widget build(BuildContext context) {
+    final status = snapshot.status;
+    final activeColor = _activeColor(status);
+    final countdown =
+        status.remainingSeconds >= 0 ? '${status.remainingSeconds}s' : '--';
+    final isCycle = currentMode == 'AUTO';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ControlButton(
-          modeCode: 'AUTO',
-          label: 'AUTO',
-          icon: Icons.autorenew,
-          active: currentMode == 'AUTO',
-          loading: isRunning('cmd:AUTO'),
-          onPressed: onCommand,
+        Row(
+          children: [
+            ModeChip(
+              label: 'Manual',
+              active: !isCycle,
+              onTap: currentMode == 'AUTO'
+                  ? () => onCommand('NIGHT')
+                  : () {},
+            ),
+            const SizedBox(width: 8),
+            ModeChip(
+              label: 'Auto Cycle',
+              active: isCycle,
+              onTap: () => onCommand('AUTO'),
+            ),
+          ],
         ),
-        ControlButton(
-          modeCode: 'NIGHT',
-          label: 'NIGHT',
-          icon: Icons.nightlight_round,
-          active: currentMode == 'NIGHT',
-          loading: isRunning('cmd:NIGHT'),
-          onPressed: onCommand,
+        const SizedBox(height: 12),
+        GlassPanel(
+          radius: 18,
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
+          child: Column(
+            children: [
+              TrafficLampStack(activeColor: activeColor),
+              const SizedBox(height: 12),
+              Text(
+                '${_colorVietnamese(activeColor)} · $countdown',
+                style: const TextStyle(
+                  color: AppColors.foreground2,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  StatusStat(
+                    label: 'Trạng thái',
+                    value: currentMode == 'EMERGENCY' ? 'Khẩn cấp' : 'Đang bật',
+                    color: currentMode == 'EMERGENCY'
+                        ? AppColors.danger
+                        : AppColors.success,
+                  ),
+                  const SizedBox(width: 8),
+                  StatusStat(
+                    label: 'Chu kỳ',
+                    value: modeLabel(currentMode),
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 8),
+                  const StatusStat(
+                    label: 'Nhiệt độ',
+                    value: '32°C',
+                    color: AppColors.foreground2,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        ControlButton(
-          modeCode: 'PRIORITY_NS',
-          label: 'PRIORITY NS',
-          icon: Icons.swap_vert,
-          active: currentMode == 'PRIORITY_NS',
-          loading: isRunning('cmd:PRIORITY_NS'),
-          onPressed: onCommand,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            MiniCommandButton(
+              modeCode: 'AUTO',
+              label: 'Auto',
+              icon: Icons.autorenew,
+              color: AppColors.accent,
+              active: currentMode == 'AUTO',
+              loading: isRunning('cmd:AUTO'),
+              onPressed: onCommand,
+            ),
+            const SizedBox(width: 8),
+            MiniCommandButton(
+              modeCode: 'NIGHT',
+              label: 'Night',
+              icon: Icons.nightlight_round,
+              color: AppColors.warn,
+              active: currentMode == 'NIGHT',
+              loading: isRunning('cmd:NIGHT'),
+              onPressed: onCommand,
+            ),
+            const SizedBox(width: 8),
+            MiniCommandButton(
+              modeCode: 'EMERGENCY',
+              label: 'Stop',
+              icon: Icons.stop_rounded,
+              color: AppColors.danger,
+              active: currentMode == 'EMERGENCY',
+              loading: isRunning('cmd:EMERGENCY'),
+              onPressed: onCommand,
+            ),
+          ],
         ),
-        ControlButton(
-          modeCode: 'PRIORITY_EW',
-          label: 'PRIORITY EW',
-          icon: Icons.swap_horiz,
-          active: currentMode == 'PRIORITY_EW',
-          loading: isRunning('cmd:PRIORITY_EW'),
-          onPressed: onCommand,
-        ),
-        ControlButton(
-          modeCode: 'EMERGENCY',
-          label: 'EMERGENCY',
-          icon: Icons.emergency,
-          active: currentMode == 'EMERGENCY',
-          loading: isRunning('cmd:EMERGENCY'),
-          danger: true,
-          onPressed: onCommand,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            MiniCommandButton(
+              modeCode: 'PRIORITY_NS',
+              label: 'NS',
+              icon: Icons.swap_vert,
+              color: AppColors.success,
+              active: currentMode == 'PRIORITY_NS',
+              loading: isRunning('cmd:PRIORITY_NS'),
+              onPressed: onCommand,
+            ),
+            const SizedBox(width: 8),
+            MiniCommandButton(
+              modeCode: 'PRIORITY_EW',
+              label: 'EW',
+              icon: Icons.swap_horiz,
+              color: AppColors.success,
+              active: currentMode == 'PRIORITY_EW',
+              loading: isRunning('cmd:PRIORITY_EW'),
+              onPressed: onCommand,
+            ),
+          ],
         ),
       ],
     );
   }
-}
 
-enum ManageSection { phasePlans, roads }
+  String _activeColor(TrafficStatus status) {
+    if (status.signals.isNotEmpty) {
+      final active = status.signals.firstWhere(
+        (signal) => signal.color != 'OFF',
+        orElse: () => status.signals.first,
+      );
+      return active.color;
+    }
+    return switch (status.phaseCode) {
+      'NS_GREEN' || 'EW_GREEN' => 'GREEN',
+      'NS_YELLOW' || 'EW_YELLOW' => 'YELLOW',
+      _ => 'RED',
+    };
+  }
+
+  String _colorVietnamese(String color) {
+    return switch (color) {
+      'GREEN' => 'Đèn xanh',
+      'YELLOW' => 'Đèn vàng',
+      'RED' => 'Đèn đỏ',
+      _ => 'Đèn tắt',
+    };
+  }
+}
 
 class ManageView extends StatefulWidget {
   const ManageView({
@@ -691,48 +1480,269 @@ class ManageView extends StatefulWidget {
 }
 
 class _ManageViewState extends State<ManageView> {
-  ManageSection selected = ManageSection.phasePlans;
-
   @override
   Widget build(BuildContext context) {
+    final activePlan = widget.phasePlans.where((plan) => plan.isActive).isEmpty
+        ? (widget.phasePlans.isEmpty ? null : widget.phasePlans.first)
+        : widget.phasePlans.firstWhere((plan) => plan.isActive);
+    final green = activePlan?.greenSeconds ?? 25;
+    final yellow = activePlan?.yellowSeconds ?? 5;
+    final red = green + yellow + 2;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<ManageSection>(
-          segments: const [
-            ButtonSegment(
-              value: ManageSection.phasePlans,
-              icon: Icon(Icons.timer_outlined),
-              label: Text('Phase plan'),
-            ),
-            ButtonSegment(
-              value: ManageSection.roads,
-              icon: Icon(Icons.alt_route),
-              label: Text('Roads'),
-            ),
-          ],
-          selected: {selected},
-          onSelectionChanged: (value) {
-            setState(() {
-              selected = value.first;
-            });
-          },
+        GlassPanel(
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Bật Auto Cycle',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    SizedBox(height: 2),
+                    Text('Đèn tự động chuyển theo chu kỳ',
+                        style:
+                            TextStyle(color: AppColors.foreground2, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Switch(
+                value: activePlan != null,
+                activeColor: AppColors.success,
+                onChanged: activePlan == null
+                    ? null
+                    : (_) => widget.onActivatePlan(activePlan),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        if (selected == ManageSection.phasePlans)
-          PhasePlanEditor(
-            phasePlans: widget.phasePlans,
-            isRunning: widget.isRunning,
-            onUpdate: widget.onUpdatePlan,
-            onActivate: widget.onActivatePlan,
-          )
-        else
+        const SectionLabel('Thời gian chu kỳ (giây)'),
+        TimingRow(
+          color: AppColors.danger,
+          label: 'Đèn đỏ',
+          value: red,
+          onMinus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green, yellow),
+          onPlus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green + 5, yellow),
+        ),
+        const SizedBox(height: 6),
+        TimingRow(
+          color: AppColors.warn,
+          label: 'Đèn vàng',
+          value: yellow,
+          onMinus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green, yellow - 1),
+          onPlus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green, yellow + 1),
+        ),
+        const SizedBox(height: 6),
+        TimingRow(
+          color: AppColors.success,
+          label: 'Đèn xanh',
+          value: green,
+          onMinus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green - 5, yellow),
+          onPlus: activePlan == null
+              ? null
+              : () => widget.onUpdatePlan(activePlan, green + 5, yellow),
+        ),
+        const SectionLabel('Lịch trình theo giờ'),
+        const ScheduleCard(
+          time: '06:00',
+          period: 'Sáng',
+          name: 'Giờ cao điểm sáng',
+          subtitle: '45s chu kỳ',
+          enabled: true,
+        ),
+        const SizedBox(height: 6),
+        const ScheduleCard(
+          time: '11:30',
+          period: 'Trưa',
+          name: 'Giờ thấp điểm',
+          subtitle: '20s chu kỳ',
+          enabled: false,
+        ),
+        const SizedBox(height: 6),
+        const ScheduleCard(
+          time: '17:00',
+          period: 'Chiều',
+          name: 'Giờ cao điểm chiều',
+          subtitle: '50s chu kỳ',
+          enabled: true,
+        ),
+        if (widget.approaches.isNotEmpty) ...[
+          const SectionLabel('Luồng đường'),
           RoadsView(
             approaches: widget.approaches,
             isRunning: widget.isRunning,
             onUpdate: widget.onUpdateApproach,
           ),
+        ],
       ],
+    );
+  }
+}
+
+class SectionLabel extends StatelessWidget {
+  const SectionLabel(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 18, 0, 8),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class TimingRow extends StatelessWidget {
+  const TimingRow({
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.onMinus,
+    required this.onPlus,
+    super.key,
+  });
+
+  final Color color;
+  final String label;
+  final int value;
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      radius: 8,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(label,
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ),
+          RoundIconButton(icon: Icons.remove, onPressed: onMinus),
+          SizedBox(
+            width: 48,
+            child: Text(
+              '$value',
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const Text('s', style: TextStyle(color: AppColors.foreground2)),
+          const SizedBox(width: 6),
+          RoundIconButton(icon: Icons.add, onPressed: onPlus),
+        ],
+      ),
+    );
+  }
+}
+
+class RoundIconButton extends StatelessWidget {
+  const RoundIconButton({required this.icon, required this.onPressed, super.key});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 32,
+      child: IconButton.filled(
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.surface2,
+          foregroundColor: AppColors.foreground,
+          disabledBackgroundColor: AppColors.surface,
+          padding: EdgeInsets.zero,
+        ),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+      ),
+    );
+  }
+}
+
+class ScheduleCard extends StatelessWidget {
+  const ScheduleCard({
+    required this.time,
+    required this.period,
+    required this.name,
+    required this.subtitle,
+    required this.enabled,
+    super.key,
+  });
+
+  final String time;
+  final String period;
+  final String name;
+  final String subtitle;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      radius: 12,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 58,
+            child: Column(
+              children: [
+                Text(time,
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800)),
+                Text(period.toUpperCase(),
+                    style:
+                        const TextStyle(color: AppColors.foreground2, fontSize: 10)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style:
+                        const TextStyle(color: AppColors.foreground2, fontSize: 12)),
+              ],
+            ),
+          ),
+          Switch(value: enabled, activeColor: AppColors.success, onChanged: (_) {}),
+        ],
+      ),
     );
   }
 }
@@ -1021,6 +2031,243 @@ class HistoryView extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class MobileSettingsView extends StatelessWidget {
+  const MobileSettingsView({
+    required this.controller,
+    required this.online,
+    required this.apiBase,
+    required this.isRunning,
+    required this.deviceStatuses,
+    required this.skipDangerConfirm,
+    required this.onApply,
+    required this.onRefresh,
+    required this.onToggleSkipConfirm,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final bool online;
+  final String apiBase;
+  final bool Function(String key) isRunning;
+  final List<Map<String, dynamic>> deviceStatuses;
+  final bool skipDangerConfirm;
+  final Future<void> Function() onApply;
+  final Future<void> Function() onRefresh;
+  final ValueChanged<bool> onToggleSkipConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final applying = isRunning('apply-url');
+    final refreshing = isRunning('refresh');
+    final host = Uri.tryParse(apiBase)?.host ?? apiBase;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('Trạng thái thiết bị'),
+        Row(
+          children: [
+            StatusStat(
+              label: online ? 'Kết nối' : 'Offline',
+              value: online ? '●' : '!',
+              color: online ? AppColors.success : AppColors.warn,
+            ),
+            const SizedBox(width: 6),
+            const StatusStat(
+              label: 'RSSI',
+              value: '-68',
+              color: AppColors.accent,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Row(
+          children: [
+            StatusStat(label: 'Nhiệt độ', value: '32°C'),
+            SizedBox(width: 6),
+            StatusStat(label: 'Uptime', value: '98%'),
+          ],
+        ),
+        const SectionLabel('Cài đặt thiết bị'),
+        GlassPanel(
+          child: Column(
+            children: [
+              TextField(
+                controller: controller,
+                enabled: !applying,
+                style: const TextStyle(color: AppColors.foreground),
+                decoration: InputDecoration(
+                  labelText: 'API base URL',
+                  hintText: 'http://10.0.2.2:8000',
+                  prefixIcon: const Icon(Icons.link),
+                  filled: true,
+                  fillColor: AppColors.surface2,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                keyboardType: TextInputType.url,
+                onSubmitted: (_) => onApply(),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: applying ? null : onApply,
+                      icon: applying
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
+                      label: const Text('Lưu'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: refreshing ? null : onRefresh,
+                      icon: refreshing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh),
+                      label: const Text('Test'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        SettingRow(
+          icon: Icons.network_wifi,
+          iconColor: AppColors.accent,
+          label: 'Địa chỉ IP',
+          desc: 'Cấu hình mạng',
+          value: host,
+        ),
+        SettingRow(
+          icon: Icons.memory,
+          iconColor: AppColors.success,
+          label: 'Tên thiết bị',
+          desc: 'Đổi tên',
+          value: deviceStatuses.isEmpty
+              ? 'TrafficLight-01'
+              : text(deviceStatuses.first['device_id'], 'TrafficLight-01'),
+        ),
+        const SettingRow(
+          icon: Icons.schedule,
+          iconColor: AppColors.warn,
+          label: 'Cấu hình chu kỳ',
+          desc: 'Đỏ, Vàng, Xanh',
+          value: '30-5-25s',
+        ),
+        SettingRow(
+          icon: Icons.warning_amber_rounded,
+          iconColor: AppColors.danger,
+          label: 'Xác nhận lệnh rủi ro',
+          desc: skipDangerConfirm ? 'Đang bỏ qua cảnh báo' : 'Luôn hỏi trước',
+          value: skipDangerConfirm ? 'Tắt' : 'Bật',
+          trailing: Switch(
+            value: !skipDangerConfirm,
+            activeColor: AppColors.success,
+            onChanged: (value) => onToggleSkipConfirm(!value),
+          ),
+        ),
+        const SectionLabel('Thông tin'),
+        const SettingRow(
+          icon: Icons.info_outline,
+          iconColor: AppColors.foreground2,
+          label: 'Phiên bản firmware',
+          value: 'v2.4.1',
+        ),
+        const SettingRow(
+          icon: Icons.shield_outlined,
+          iconColor: AppColors.foreground2,
+          label: 'Bảo mật',
+          desc: 'TLS 1.3',
+        ),
+      ],
+    );
+  }
+}
+
+class SettingRow extends StatelessWidget {
+  const SettingRow({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    this.desc = '',
+    this.value = '',
+    this.trailing,
+    super.key,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String desc;
+  final String value;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 1),
+      child: GlassPanel(
+        radius: 8,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(icon, color: iconColor, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600)),
+                  if (desc.isNotEmpty)
+                    Text(desc,
+                        style: const TextStyle(
+                            color: AppColors.foreground2, fontSize: 11)),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else if (value.isNotEmpty)
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(color: AppColors.foreground2, fontSize: 14),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
