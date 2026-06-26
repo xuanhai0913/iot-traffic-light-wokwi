@@ -2,6 +2,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        if (providers.gradleProperty("useAliyunMirrors").map(String::toBoolean).getOrElse(false)) {
+            maven { url = uri("https://maven.aliyun.com/repository/public") }
+            maven { url = uri("https://maven.aliyun.com/repository/google") }
+            maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
+        }
     }
 }
 

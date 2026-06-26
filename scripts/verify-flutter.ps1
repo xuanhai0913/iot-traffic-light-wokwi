@@ -57,7 +57,7 @@ Push-Location $flutterAppOnT
 try {
     Write-Host ""
     Write-Host "=== flutter analyze ==="
-    & "T:\$flutterBatRelative" analyze 2>&1 | Out-Host
+    & "T:\$flutterBatRelative" analyze
     $analyzeExit = $LASTEXITCODE
     Write-Host "=== analyze exit: $analyzeExit ==="
 
@@ -67,7 +67,7 @@ try {
 
     Write-Host ""
     Write-Host "=== flutter test ==="
-    & "T:\$flutterBatRelative" test 2>&1 | Out-Host
+    & "T:\$flutterBatRelative" test
     $testExit = $LASTEXITCODE
     Write-Host "=== test exit: $testExit ==="
 

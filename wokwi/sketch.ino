@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Preferences.h>
+#include <string.h>
 
 namespace Pins {
 const uint8_t NS_RED = 16;
@@ -474,20 +475,23 @@ const uint8_t PhaseConfig::DEFAULT_DURATIONS[PhaseConfig::PHASE_COUNT] = {8, 3, 
 class EventLog {
 public:
   static constexpr uint8_t CAPACITY = 20;
+  static constexpr size_t MESSAGE_MAX = 64;
 
   enum class Level { Info, Warn, Error };
 
   struct Entry {
     unsigned long uptimeMs;
     Level level;
-    const char *message;
+    char message[MESSAGE_MAX];
   };
 
   void add(Level level, const char *message) {
     Entry &e = buffer[head];
     e.uptimeMs = millis();
     e.level = level;
-    e.message = message;
+    const char *safeMessage = message == nullptr ? "" : message;
+    strncpy(e.message, safeMessage, MESSAGE_MAX - 1);
+    e.message[MESSAGE_MAX - 1] = '\0';
     head = (head + 1) % CAPACITY;
     if (count < CAPACITY) count++;
   }
