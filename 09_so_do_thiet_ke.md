@@ -2,584 +2,286 @@
 
 ## ERD có phù hợp dự án không?
 
-Có, ERD phù hợp với hệ thống IoT Traffic Light mở rộng theo hướng có bảng điều khiển web / ứng dụng di động và cơ sở dữ liệu quản lý.
+Có, ERD phù hợp nếu nhóm trình bày hệ thống theo hướng IoT có dashboard/mobile app và database quản lý. Phần mô phỏng Wokwi không bắt buộc database để chạy, nhưng database giúp bài lớn có chiều sâu hơn vì thể hiện được:
 
-Phần mô phỏng Wokwi có thể hoạt động độc lập, tuy nhiên cơ sở dữ liệu giúp hệ thống có chiều sâu hơn:
-
-- Lưu cấu hình thời gian các pha đèn.
-- Lưu chế độ hoạt động của hệ thống.
-- Lưu lịch sử lệnh điều khiển.
+- Lưu cấu hình thời gian pha đèn.
+- Lưu lịch sử lệnh điều khiển từ dashboard/mobile app.
 - Lưu log trạng thái đèn theo thời gian.
-- Hỗ trợ mở rộng backend/API thực tế.
+- Có cơ sở để mở rộng sang backend/API thật.
 
-Mô hình triển khai:
+Vì vậy cách trình bày tốt nhất là: Wokwi mô phỏng phần thiết bị, còn ERD/database mô tả phần hệ thống quản lý khi triển khai thực tế.
 
-- ESP32/Wokwi: mô phỏng thiết bị.
-- Máy chủ: xử lý lệnh.
-- Cơ sở dữ liệu: lưu dữ liệu quản lý.
+## Danh sách sơ đồ nên đưa vào báo cáo
 
----
+| Sơ đồ | Có nên đưa vào report? | Mục đích |
+|---|---:|---|
+| Kiến trúc tổng thể | Có | Cho thấy app, backend, database và thiết bị mô phỏng liên kết thế nào |
+| ERD/CSDL | Có | Thể hiện thiết kế database và dữ liệu log |
+| State machine | Có | Giải thích thuật toán điều khiển đèn |
+| Class diagram/OOP | Có | Thể hiện áp dụng OOP vào code |
+| Sequence gửi lệnh | Nên có | Giải thích flow app gửi lệnh điều khiển |
+| Sequence mobile command | Nên có | Giải thích app mobile gửi lệnh qua API/MQTT đến ESP32 |
 
-# Danh sách sơ đồ trong báo cáo
-
-| Sơ đồ | Đưa vào report | Mục đích |
-|-|-|-|
-| Kiến trúc hệ thống | Có | Mô tả các thành phần IoT |
-| ERD Database | Có | Thiết kế cơ sở dữ liệu |
-| State Machine | Có | Thuật toán điều khiển đèn |
-| Class Diagram | Có | Thể hiện lập trình hướng đối tượng |
-| Sequence Diagram | Có | Mô tả luồng gửi lệnh |
-
----
-
-# 1. Sơ đồ kiến trúc tổng thể
+## 1. Sơ đồ kiến trúc tổng thể
 
 ```mermaid
 flowchart TD
+    Operator["Người vận hành"]
+    Admin["Người quản trị"]
+    Dashboard["Dashboard / Mobile Web"]
+    Backend["Backend API"]
+    Database[("SQLite / Database")]
+    Gateway["Serial / WiFi / MQTT Gateway"]
+    Controller["ESP32 / Arduino Controller"]
+    Wokwi["Wokwi Simulation"]
+    Lights["2 cụm đèn giao thông"]
+    Display["LCD / 7-seg countdown"]
+    Buttons["Nút nhấn đổi chế độ"]
 
-NguoiVanHanh["Người vận hành"]
-QuanTri["Người quản trị"]
-
-BangDieuKhien["Bảng điều khiển Web / Ứng dụng di động"]
-
-MayChu["Máy chủ API"]
-
-CoSoDuLieu[("Cơ sở dữ liệu SQLite")]
-
-MQTT["MQTT Gateway"]
-
-ESP32["ESP32 Controller"]
-
-Wokwi["Mô phỏng Wokwi"]
-
-DenGiaoThong["Đèn giao thông"]
-
-LCD["LCD Countdown"]
-
-NutBam["Nút bấm"]
-
-
-NguoiVanHanh --> BangDieuKhien
-QuanTri --> BangDieuKhien
-
-BangDieuKhien --> MayChu
-
-MayChu --> CoSoDuLieu
-
-MayChu --> MQTT
-
-MQTT --> ESP32
-
-ESP32 --> DenGiaoThong
-ESP32 --> LCD
-
-NutBam --> ESP32
-
-ESP32 --> Wokwi
+    Operator --> Dashboard
+    Admin --> Dashboard
+    Dashboard --> Backend
+    Backend --> Database
+    Backend --> Gateway
+    Gateway --> Controller
+    Buttons --> Controller
+    Controller --> Lights
+    Controller --> Display
+    Controller --> Wokwi
+    Controller --> Backend
 ```
 
----
-
-# 2. ERD / Database Schema
+## 2. ERD / Database schema
 
 ```mermaid
 erDiagram
+    INTERSECTIONS ||--o{ PHASE_CONFIGS : has
+    INTERSECTIONS ||--o{ CONTROL_COMMANDS : receives
+    INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : logs
+    TRAFFIC_MODES ||--o{ PHASE_CONFIGS : configures
+    TRAFFIC_MODES ||--o{ CONTROL_COMMANDS : used_by
+    TRAFFIC_MODES ||--o{ TRAFFIC_EVENT_LOGS : appears_in
 
+    INTERSECTIONS {
+        int id PK
+        string name
+        string location
+        string status
+        datetime created_at
+    }
 
-GIAO_LO ||--o{ CAU_HINH_PHA_DEN : co
+    TRAFFIC_MODES {
+        int id PK
+        string code UK
+        string name
+        string description
+    }
 
-GIAO_LO ||--o{ LENH_DIEU_KHIEN : nhan
+    PHASE_CONFIGS {
+        int id PK
+        int intersection_id FK
+        string mode_code FK
+        string direction
+        int green_seconds
+        int yellow_seconds
+        int red_seconds
+        boolean is_active
+    }
 
-GIAO_LO ||--o{ NHAT_KY_SU_KIEN : luu
+    CONTROL_COMMANDS {
+        int id PK
+        int intersection_id FK
+        string command
+        string mode_code FK
+        string source
+        string created_by
+        datetime created_at
+    }
 
-
-CHE_DO_GIAO_THONG ||--o{ CAU_HINH_PHA_DEN : cau_hinh
-
-CHE_DO_GIAO_THONG ||--o{ LENH_DIEU_KHIEN : su_dung
-
-CHE_DO_GIAO_THONG ||--o{ NHAT_KY_SU_KIEN : ghi_nhan
-
-
-
-GIAO_LO {
-
-int id PK
-
-string ten
-
-string vi_tri
-
-string trang_thai
-
-datetime thoi_gian_tao
-
-}
-
-
-
-CHE_DO_GIAO_THONG {
-
-int id PK
-
-string ma_che_do UK
-
-string ten
-
-string mo_ta
-
-}
-
-
-
-CAU_HINH_PHA_DEN {
-
-int id PK
-
-int giao_lo_id FK
-
-string ma_che_do FK
-
-string huong
-
-int thoi_gian_xanh
-
-int thoi_gian_vang
-
-int thoi_gian_do
-
-boolean dang_hoat_dong
-
-}
-
-
-
-LENH_DIEU_KHIEN {
-
-int id PK
-
-int giao_lo_id FK
-
-string lenh
-
-string nguon
-
-string nguoi_tao
-
-datetime thoi_gian_tao
-
-}
-
-
-
-NHAT_KY_SU_KIEN {
-
-int id PK
-
-int giao_lo_id FK
-
-string ma_che_do
-
-string den_bac_nam
-
-string den_dong_tay
-
-int thoi_gian_con_lai
-
-datetime thoi_gian_tao
-
-}
-
-
+    TRAFFIC_EVENT_LOGS {
+        int id PK
+        int intersection_id FK
+        string mode_code FK
+        string ns_light
+        string ew_light
+        int remaining_seconds
+        datetime created_at
+    }
 ```
 
----
-
-# Giải thích database
-
-## giao_lo
-
-Lưu thông tin giao lộ.
-
-Ví dụ:
-
-- tên giao lộ
-- vị trí
-- trạng thái hiện tại
-
-
-## che_do_giao_thong
-
-Lưu các chế độ:
-
-- AUTO
-- NIGHT
-- PRIORITY
-- EMERGENCY
-
-
-## cau_hinh_pha_den
-
-Lưu cấu hình thời gian đèn:
-
-- xanh
-- vàng
-- đỏ
-
-
-## lenh_dieu_khien
-
-Lưu các lệnh từ:
-
-- bảng điều khiển
-- ứng dụng di động
-
-
-## nhat_ky_su_kien
-
-Lưu lịch sử hoạt động:
-
-- trạng thái đèn
-- countdown
-- thời gian xảy ra
-
----
-
-# 3. State Machine điều khiển đèn
-
-## State Diagram
+## 3. State machine điều khiển đèn
 
 ```mermaid
 stateDiagram-v2
+    [*] --> AUTO_NS_GREEN
 
-[*] --> AUTO_NS_GREEN
+    AUTO_NS_GREEN --> AUTO_NS_YELLOW: hết thời gian xanh Bắc-Nam
+    AUTO_NS_YELLOW --> AUTO_EW_GREEN: hết thời gian vàng Bắc-Nam
+    AUTO_EW_GREEN --> AUTO_EW_YELLOW: hết thời gian xanh Đông-Tây
+    AUTO_EW_YELLOW --> AUTO_NS_GREEN: hết thời gian vàng Đông-Tây
 
+    AUTO_NS_GREEN --> NIGHT: lệnh NIGHT
+    AUTO_NS_YELLOW --> NIGHT: lệnh NIGHT
+    AUTO_EW_GREEN --> NIGHT: lệnh NIGHT
+    AUTO_EW_YELLOW --> NIGHT: lệnh NIGHT
 
-AUTO_NS_GREEN --> AUTO_NS_YELLOW: hết thời gian xanh Bắc-Nam
-AUTO_NS_YELLOW --> AUTO_EW_GREEN: hết thời gian vàng Bắc-Nam
-AUTO_EW_GREEN --> AUTO_EW_YELLOW: hết thời gian xanh Đông-Tây
-AUTO_EW_YELLOW --> AUTO_NS_GREEN: hết thời gian vàng Đông-Tây
+    NIGHT --> AUTO_NS_GREEN: lệnh AUTO
+    NIGHT --> NIGHT: vàng nhấp nháy
 
+    AUTO_NS_GREEN --> PRIORITY_NS: lệnh PRIORITY_NS
+    AUTO_EW_GREEN --> PRIORITY_EW: lệnh PRIORITY_EW
+    PRIORITY_NS --> AUTO_NS_GREEN: lệnh AUTO
+    PRIORITY_EW --> AUTO_NS_GREEN: lệnh AUTO
 
-AUTO_NS_GREEN --> NIGHT: lệnh NIGHT
-AUTO_NS_YELLOW --> NIGHT: lệnh NIGHT
-AUTO_EW_GREEN --> NIGHT: lệnh NIGHT
-AUTO_EW_YELLOW --> NIGHT: lệnh NIGHT
-
-
-NIGHT --> AUTO_NS_GREEN: lệnh AUTO
-NIGHT --> NIGHT: vàng nhấp nháy
-
-
-AUTO_NS_GREEN --> PRIORITY_NS: lệnh PRIORITY_NS
-AUTO_EW_GREEN --> PRIORITY_EW: lệnh PRIORITY_EW
-
-PRIORITY_NS --> AUTO_NS_GREEN: lệnh AUTO
-PRIORITY_EW --> AUTO_NS_GREEN: lệnh AUTO
-
-
-AUTO_NS_GREEN --> EMERGENCY: lệnh EMERGENCY
-AUTO_EW_GREEN --> EMERGENCY: lệnh EMERGENCY
-NIGHT --> EMERGENCY: lệnh EMERGENCY
-PRIORITY_NS --> EMERGENCY: lệnh EMERGENCY
-PRIORITY_EW --> EMERGENCY: lệnh EMERGENCY
-
-EMERGENCY --> AUTO_NS_GREEN: lệnh AUTO
+    AUTO_NS_GREEN --> EMERGENCY: lệnh EMERGENCY
+    AUTO_EW_GREEN --> EMERGENCY: lệnh EMERGENCY
+    NIGHT --> EMERGENCY: lệnh EMERGENCY
+    PRIORITY_NS --> EMERGENCY: lệnh EMERGENCY
+    PRIORITY_EW --> EMERGENCY: lệnh EMERGENCY
+    EMERGENCY --> AUTO_NS_GREEN: lệnh AUTO
 ```
 
----
-
-# Pseudo Code điều khiển
-
-```text
-START
-
-while hệ thống đang chạy:
-
-    đọc chế độ hiện tại
-
-    nếu chế độ == EMERGENCY:
-
-        bật tất cả đèn đỏ
-
-
-    ngược lại nếu chế độ == PRIORITY:
-
-        cho hướng ưu tiên đèn xanh
-
-
-    ngược lại nếu chế độ == NIGHT:
-
-        nhấp nháy đèn vàng
-
-
-    ngược lại:
-
-        chạy chu trình AUTO
-
-
-END
-```
-
----
-
-# 4. Class Diagram / OOP
+## 4. Class diagram / OOP
 
 ```mermaid
 classDiagram
+    class TrafficLight {
+        -int redPin
+        -int yellowPin
+        -int greenPin
+        +begin()
+        +setRed()
+        +setYellow()
+        +setGreen()
+        +turnOff()
+    }
 
+    class TrafficPhase {
+        +String name
+        +String nsLight
+        +String ewLight
+        +int durationSeconds
+    }
 
-class DenGiaoThong {
+    class ModeManager {
+        -String currentMode
+        +setMode(mode)
+        +getMode()
+        +isAuto()
+        +isNight()
+        +isEmergency()
+    }
 
--int chanDo
+    class DisplayManager {
+        +begin()
+        +showMode(mode)
+        +showCountdown(seconds)
+        +showLights(nsLight, ewLight)
+    }
 
--int chanVang
+    class IntersectionController {
+        -TrafficLight nsLight
+        -TrafficLight ewLight
+        -ModeManager modeManager
+        -DisplayManager displayManager
+        +begin()
+        +update()
+        +runAuto()
+        +runNight()
+        +runPriority(direction)
+        +runEmergency()
+    }
 
--int chanXanh
+    class CommandRepository {
+        +saveCommand(command)
+        +listRecentCommands()
+    }
 
-+batDau()
+    class TrafficLogRepository {
+        +saveLog(state)
+        +listRecentLogs()
+    }
 
-+batDo()
-
-+batVang()
-
-+batXanh()
-
-}
-
-
-
-class PhaTinHieu {
-
-+String ten
-
-+String bacNam
-
-+String dongTay
-
-+int thoiGian
-
-}
-
-
-
-class QuanLyCheDo {
-
--String cheDoHienTai
-
-+datCheDo()
-
-+layCheDo()
-
-+kiemTraKhanCap()
-
-+kiemTraBanDem()
-
-}
-
-
-
-class QuanLyHienThi {
-
-+hienThiCheDo()
-
-+hienThiDemNguoc()
-
-+hienThiTrangThai()
-
-}
-
-
-
-class BoDieuKhienGiaoLo {
-
-+batDau()
-
-+capNhat()
-
-+chayTuDong()
-
-+chayBanDem()
-
-+chayUuTien()
-
-+chayKhanCap()
-
-}
-
-
-
-BoDieuKhienGiaoLo --> DenGiaoThong
-
-BoDieuKhienGiaoLo --> PhaTinHieu
-
-BoDieuKhienGiaoLo --> QuanLyCheDo
-
-BoDieuKhienGiaoLo --> QuanLyHienThi
-
-
+    IntersectionController --> TrafficLight
+    IntersectionController --> TrafficPhase
+    IntersectionController --> ModeManager
+    IntersectionController --> DisplayManager
+    ModeManager --> CommandRepository
+    IntersectionController --> TrafficLogRepository
 ```
 
----
-
-# 5. Sequence Flow điều khiển
+## 5. Sequence flow khi người dùng đổi chế độ
 
 ```mermaid
 sequenceDiagram
+    actor User as Người vận hành
+    participant UI as Dashboard/Mobile Web
+    participant API as Backend API
+    participant DB as Database
+    participant Device as ESP32/Arduino
+    participant Sim as Wokwi/Đèn mô phỏng
 
-actor NguoiDung
-
-participant BangDieuKhien
-
-participant MayChu
-
-participant CoSoDuLieu
-
-participant ESP32
-
-participant Wokwi
-
-
-NguoiDung->>BangDieuKhien:
-chọn chế độ
-
-
-BangDieuKhien->>MayChu:
-gửi lệnh
-
-
-MayChu->>CoSoDuLieu:
-lưu lệnh
-
-
-MayChu->>ESP32:
-gửi command
-
-
-ESP32->>Wokwi:
-đổi trạng thái LED
-
-
-ESP32->>MayChu:
-gửi trạng thái
-
-
-MayChu->>CoSoDuLieu:
-lưu log
-
-
-MayChu->>BangDieuKhien:
-trả trạng thái
-
-
+    User->>UI: Chọn mode NIGHT/PRIORITY/EMERGENCY
+    UI->>API: POST /api/commands
+    API->>DB: Lưu control_commands
+    API->>Device: Gửi lệnh điều khiển
+    Device->>Device: ModeManager cập nhật mode
+    Device->>Sim: Bật/tắt LED theo mode
+    Device->>API: Gửi trạng thái hiện tại
+    API->>DB: Lưu traffic_event_logs
+    API->>UI: Trả về trạng thái mới
+    UI->>User: Hiển thị mode và countdown
 ```
 
----
+## 5.1. Sequence mobile app điều khiển
 
-# 6. Mobile App Command Flow
+Source riêng: `assets/diagrams/mobile_command_flow.mmd`.
 
 ```mermaid
 sequenceDiagram
+    actor Operator as Người vận hành
+    participant App as Mobile App / PWA
+    participant API as Backend API
+    participant DB as Database
+    participant Broker as MQTT / HTTP Gateway
+    participant ESP32 as ESP32 Controller
+    participant Lights as Đèn giao thông
 
-actor NguoiVanHanh
-
-participant UngDung
-
-participant MayChu
-
-participant MQTT
-
-participant ESP32
-
-participant Den
-
-
-NguoiVanHanh->>UngDung:
-chọn AUTO/NIGHT/PRIORITY/EMERGENCY
-
-
-UngDung->>MayChu:
-POST command
-
-
-MayChu->>MQTT:
-publish message
-
-
-MQTT->>ESP32:
-receive command
-
-
-ESP32->>Den:
-update LED
-
-
-ESP32->>MQTT:
-publish status
-
-
-MQTT->>MayChu:
-status event
-
-
-MayChu->>UngDung:
-update display
-
-
+    Operator->>App: Chọn AUTO / NIGHT / PRIORITY / EMERGENCY
+    App->>API: POST /api/commands
+    API->>DB: Lưu control_commands
+    API->>Broker: Publish command
+    Broker->>ESP32: Gửi lệnh điều khiển
+    ESP32->>Lights: Cập nhật trạng thái đèn
+    ESP32->>Broker: Publish trạng thái mới
+    Broker->>API: Nhận status event
+    API->>DB: Lưu traffic_event_logs
+    API->>App: Trả status / countdown
 ```
 
----
-
-# 7. Data Flow
+## 6. Data flow rút gọn
 
 ```mermaid
 flowchart LR
+    Input["Input: button / dashboard command"]
+    Validate["Kiểm tra lệnh"]
+    Mode["Cập nhật mode"]
+    Control["Điều khiển LED + countdown"]
+    Log["Ghi log trạng thái"]
+    Output["Output: đèn, LCD, dashboard"]
 
-Input["Nút bấm / Lệnh từ Dashboard"]
-
-KiemTra["Kiểm tra lệnh"]
-
-CheDo["Cập nhật chế độ"]
-
-DieuKhien["Điều khiển LED"]
-
-LuuLog["Lưu nhật ký"]
-
-Output["LCD / Dashboard"]
-
-
-Input --> KiemTra
-
-KiemTra --> CheDo
-
-CheDo --> DieuKhien
-
-DieuKhien --> LuuLog
-
-DieuKhien --> Output
-
-
+    Input --> Validate
+    Validate --> Mode
+    Mode --> Control
+    Control --> Log
+    Control --> Output
+    Log --> Output
 ```
 
----
+## Cách dùng trong báo cáo
 
-# Diagram Images
-
-Sau khi export Mermaid:
-
-```
-assets/diagrams/erd.png
-
-assets/diagrams/state_machine.png
-```
-
-Dùng cho report và slide.
-
----
-
-# Cách dùng trong báo cáo
-
-- Kiến trúc hệ thống: phần tổng quan.
-- ERD: phần thiết kế database.
-- State machine: phần thuật toán.
-- Class diagram: phần OOP.
-- Sequence: phần IoT communication.
+- Dùng sơ đồ kiến trúc ở phần tổng quan hệ thống.
+- Dùng ERD ở phần thiết kế CSDL.
+- Dùng state machine ở phần thuật toán điều khiển.
+- Dùng class diagram ở phần áp dụng OOP.
+- Dùng sequence flow ở phần dashboard/mobile app điều khiển.
