@@ -1,53 +1,95 @@
 erDiagram
+
     INTERSECTIONS ||--o{ PHASE_CONFIGS : has
     INTERSECTIONS ||--o{ CONTROL_COMMANDS : receives
-    INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : logs
+    INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : stores
+
     TRAFFIC_MODES ||--o{ PHASE_CONFIGS : configures
-    TRAFFIC_MODES ||--o{ CONTROL_COMMANDS : used_by
-    TRAFFIC_MODES ||--o{ TRAFFIC_EVENT_LOGS : appears_in
+    TRAFFIC_MODES ||--o{ CONTROL_COMMANDS : uses
+    TRAFFIC_MODES ||--o{ TRAFFIC_EVENT_LOGS : records
+
 
     INTERSECTIONS {
+
         int id PK
+
         string name
+
         string location
+
         string status
+
         datetime created_at
+
     }
+
 
     TRAFFIC_MODES {
+
         int id PK
+
         string code UK
+
         string name
+
         string description
+
     }
+
 
     PHASE_CONFIGS {
+
         int id PK
+
         int intersection_id FK
+
         string mode_code FK
+
         string direction
+
         int green_seconds
+
         int yellow_seconds
+
         int red_seconds
+
         boolean is_active
+
     }
+
 
     CONTROL_COMMANDS {
+
         int id PK
+
         int intersection_id FK
+
         string command
-        string mode_code FK
+
         string source
+
         string created_by
+
         datetime created_at
+
     }
 
+
+
     TRAFFIC_EVENT_LOGS {
+
         int id PK
+
         int intersection_id FK
-        string mode_code FK
+
+        string mode_code
+
         string ns_light
+
         string ew_light
+
         int remaining_seconds
+
         datetime created_at
+
     }

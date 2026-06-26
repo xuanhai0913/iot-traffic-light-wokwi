@@ -207,3 +207,11 @@ Một bản được xem là đạt để nộp khi:
 - Có mô tả hướng mobile app gửi lệnh đến backend/API/MQTT.
 - Có report PDF, slide và video/GIF demo.
 - GitHub repo cập nhật đầy đủ file cuối.
+
+Các sơ đồ chi tiết:
+
+- ERD Database:
+  `assets/diagrams/erd.mmd`
+
+- State Machine:
+  `assets/diagrams/state_machine.mmd`
