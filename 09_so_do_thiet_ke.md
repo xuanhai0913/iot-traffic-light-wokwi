@@ -49,6 +49,7 @@ flowchart TD
     Controller --> Display
     Controller --> Wokwi
     Controller --> Backend
+
 ```
 
 ## 2. ERD / Database schema
