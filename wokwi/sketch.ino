@@ -47,6 +47,7 @@ enum class TrafficMode {
   Night,
   PriorityNS,
   PriorityEW,
+  Maintenance,
   Emergency
 };
 
@@ -187,6 +188,8 @@ public:
       return "PRIORITY EW";
     case TrafficMode::Emergency:
       return "EMERGENCY";
+    case TrafficMode::Maintenance:
+      return "MAINTENANCE";
     }
     return "UNKNOWN";
   }
@@ -302,6 +305,12 @@ private:
     if (command == "E" || command == "EMERGENCY" || command == "SET_EMERGENCY") {
       nextMode = TrafficMode::Emergency;
       canonicalCommand = "SET_EMERGENCY";
+      return true;
+    }
+
+    if (command == "M" || command == "MAINTENANCE" || command == "MAINT" || command == "SET_MAINTENANCE") {
+      nextMode = TrafficMode::Maintenance;
+      canonicalCommand = "SET_MAINTENANCE";
       return true;
     }
 
@@ -692,6 +701,38 @@ private:
   const char *modeName;
 };
 
+// MAINTENANCE mode: all LEDs off, LCD shows "MAINTENANCE". Operators use it
+// to safely service the hardware. W3 — MQTT-only (no physical button).
+// Exits only when another mode command arrives (auto/night/priority/emergency).
+class MaintenanceMode : public IModeStrategy {
+public:
+  MaintenanceMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
+                  DisplayManager &display, const char *modeName)
+      : north(n), south(s), east(e), west(w), display(display), modeName(modeName) {}
+
+  void enter() override {
+    north.turnOff();
+    south.turnOff();
+    east.turnOff();
+    west.turnOff();
+  }
+  void tick() override {
+    display.showStatus(modeName, "ALL OFF", -1);
+  }
+  const char *phaseCode() const override { return "MAINTENANCE"; }
+  int remainingSeconds() const override { return -1; }
+  void getLightColors(LightColor &n, LightColor &s, LightColor &e, LightColor &w) const override {
+    n = LightColor::Off; s = LightColor::Off;
+    e = LightColor::Off; w = LightColor::Off;
+  }
+  const char *displayLine() const override { return "ALL OFF"; }
+
+private:
+  RoadApproach &north, &south, &east, &west;
+  DisplayManager &display;
+  const char *modeName;
+};
+
 class DisplayManager {
 public:
   void begin() {
@@ -769,7 +810,8 @@ public:
         priorityNSMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityNS)),
         priorityEWMode(north, south, east, west, display, modeNameFor(TrafficMode::PriorityEW)),
         emergencyMode(north, south, east, west, display, modeNameFor(TrafficMode::Emergency)),
-        strategies{&autoMode, &nightMode, &priorityNSMode, &priorityEWMode, &emergencyMode},
+        maintenanceMode(north, south, east, west, display, modeNameFor(TrafficMode::Maintenance)),
+        strategies{&autoMode, &nightMode, &priorityNSMode, &priorityEWMode, &emergencyMode, &maintenanceMode},
         _current(&autoMode) {}
 
   void begin() {
@@ -833,8 +875,9 @@ private:
   PriorityNSMode priorityNSMode;
   PriorityEWMode priorityEWMode;
   EmergencyMode emergencyMode;
+  MaintenanceMode maintenanceMode;
 
-  IModeStrategy *strategies[5];
+  IModeStrategy *strategies[6];  // Auto, Night, PriorityNS, PriorityEW, Emergency, Maintenance
   IModeStrategy *_current;
 
   // Cached colors queried by MqttClientManager::publishStatus.
@@ -850,6 +893,7 @@ private:
     case TrafficMode::PriorityNS:  return "PRIORITY NS";
     case TrafficMode::PriorityEW:  return "PRIORITY EW";
     case TrafficMode::Emergency:   return "EMERGENCY";
+    case TrafficMode::Maintenance: return "MAINTENANCE";
     }
     return "UNKNOWN";
   }
@@ -1143,6 +1187,8 @@ private:
       return "PRIORITY_EW";
     case TrafficMode::Emergency:
       return "EMERGENCY";
+    case TrafficMode::Maintenance:
+      return "MAINTENANCE";
     }
 
     return "AUTO";
