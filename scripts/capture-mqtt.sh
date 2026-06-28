@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # capture-mqtt.sh — tự động gửi 5 lệnh qua API + sniff MQTT song song.
-# Tạo file assets/e2e/mqtt_capture_<mode>.log cho từng lệnh.
+# Tạo file docs/evidence/e2e/mqtt_capture_<mode>.log cho từng lệnh.
 #
 # Cách dùng:
 #   bash scripts/capture-mqtt.sh                    # dùng default API base
@@ -19,7 +19,7 @@ TOPIC="traffic/hainx-iot-traffic-light/intersections/${INTERSECTION_ID}/commands
 SNIFF_SECONDS="${SNIFF_SECONDS:-12}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-EVIDENCE_DIR="$REPO_ROOT/assets/e2e"
+EVIDENCE_DIR="$REPO_ROOT/docs/evidence/e2e"
 
 mkdir -p "$EVIDENCE_DIR"
 

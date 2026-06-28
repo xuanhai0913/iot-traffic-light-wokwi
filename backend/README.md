@@ -94,7 +94,7 @@ dotnet run
 | GET | `/api/health` | Kiểm tra backend |
 | GET | `/api/traffic-modes` | Danh sách mode điều khiển |
 | GET | `/api/intersections` | Danh sách giao lộ |
-| GET | `/api/intersections/1/dashboard` | Snapshot tổng hợp cho dashboard PWA |
+| GET | `/api/intersections/1/dashboard` | Snapshot tổng hợp cho dashboard Flutter/web |
 | GET | `/api/intersections/1/status` | Trạng thái hiện tại |
 | GET | `/api/intersections/1/approaches` | Danh sách tuyến đường và signal head |
 | POST | `/api/intersections/1/approaches` | Thêm tuyến đường |
@@ -167,7 +167,7 @@ Invoke-RestMethod `
 - API status, command, history, logs, roads, modes va phase config.
 - Guard cho emergency mode.
 - Validate conflict helper cho phase step.
-- PWA trong `mobile_app/` goi API C# that.
+- Flutter app/web trong `flutter_app/` goi API C# that.
 
 ## Smoke test
 

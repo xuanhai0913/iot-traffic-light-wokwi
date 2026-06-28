@@ -122,11 +122,11 @@ Save screenshots and video using these names:
 
 | Artifact | Save path |
 |---|---|
-| AUTO screenshot | `assets/wokwi/wokwi_auto.png` |
-| NIGHT screenshot | `assets/wokwi/wokwi_night.png` |
-| PRIORITY NS screenshot | `assets/wokwi/wokwi_priority_ns.png` |
-| PRIORITY EW screenshot | `assets/wokwi/wokwi_priority_ew.png` |
-| EMERGENCY screenshot | `assets/wokwi/wokwi_emergency.png` |
+| AUTO screenshot | `docs/evidence/wokwi/wokwi_auto.png` |
+| NIGHT screenshot | `docs/evidence/wokwi/wokwi_night.png` |
+| PRIORITY NS screenshot | `docs/evidence/wokwi/wokwi_priority_ns.png` |
+| PRIORITY EW screenshot | `docs/evidence/wokwi/wokwi_priority_ew.png` |
+| EMERGENCY screenshot | `docs/evidence/wokwi/wokwi_emergency.png` |
 | Demo video | `demo/demo_wokwi.mp4` |
 
 ## Verified Evidence
@@ -135,12 +135,12 @@ The current repo source was loaded into a temporary Wokwi ESP32 project on 2026-
 
 Saved screenshots:
 
-- `assets/wokwi/wokwi_compile_run.png`
-- `assets/wokwi/wokwi_auto.png`
-- `assets/wokwi/wokwi_night.png`
-- `assets/wokwi/wokwi_priority_ns.png`
-- `assets/wokwi/wokwi_priority_ew.png`
-- `assets/wokwi/wokwi_emergency.png`
+- `docs/evidence/wokwi/wokwi_compile_run.png`
+- `docs/evidence/wokwi/wokwi_auto.png`
+- `docs/evidence/wokwi/wokwi_night.png`
+- `docs/evidence/wokwi/wokwi_priority_ns.png`
+- `docs/evidence/wokwi/wokwi_priority_ew.png`
+- `docs/evidence/wokwi/wokwi_emergency.png`
 
 ## Recording Tips
 
