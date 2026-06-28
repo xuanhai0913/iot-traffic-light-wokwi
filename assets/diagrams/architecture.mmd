@@ -1,24 +1,36 @@
-flowchart TD
-    Operator["Người vận hành"]
-    Admin["Người quản trị"]
-    Dashboard["Dashboard / Mobile Web"]
-    Backend["Backend API"]
-    Database[("SQLite / Database")]
-    Gateway["Serial / WiFi / MQTT Gateway"]
-    Controller["ESP32 / Arduino Controller"]
-    Wokwi["Wokwi Simulation"]
-    Lights["2 cụm đèn giao thông"]
-    Display["LCD / 7-seg countdown"]
-    Buttons["Nút nhấn đổi chế độ"]
+flowchart LR
+    Operator["Nguoi van hanh"]
+    Mobile["Flutter app / PWA"]
+    Api["C# ASP.NET Core API"]
+    Service["TrafficService"]
+    Repo["TrafficRepository"]
+    Db[("SQLite")]
+    Bridge["MqttTrafficBridge"]
+    Broker["MQTT broker"]
+    Device["ESP32 firmware"]
+    Controller["IntersectionController + mode strategies"]
+    Inputs["Button / Serial command"]
+    Scene["Wokwi scene"]
+    Signals["4 huong logic: NORTH, SOUTH, EAST, WEST"]
+    Display["LCD + countdown + event log"]
+    Ack["ACK / status / log stream"]
 
-    Operator --> Dashboard
-    Admin --> Dashboard
-    Dashboard --> Backend
-    Backend --> Database
-    Backend --> Gateway
-    Gateway --> Controller
-    Buttons --> Controller
-    Controller --> Lights
+    Operator --> Mobile
+    Mobile -->|"HTTP/JSON"| Api
+    Api --> Service
+    Service --> Repo
+    Repo --> Db
+    Service --> Bridge
+    Bridge -->|"publish command"| Broker
+    Broker -->|"traffic/.../commands"| Device
+    Device --> Controller
+    Inputs --> Controller
+    Controller --> Signals
     Controller --> Display
-    Controller --> Wokwi
-    Controller --> Backend
+    Signals --> Scene
+    Display --> Scene
+    Controller --> Ack
+    Ack -->|"traffic/.../status + acks"| Broker
+    Broker --> Bridge
+    Bridge --> Repo
+    Repo --> Db

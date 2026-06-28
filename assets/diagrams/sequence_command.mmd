@@ -1,18 +1,28 @@
 sequenceDiagram
-    actor User as Người vận hành
-    participant UI as Dashboard/Mobile Web
-    participant API as Backend API
-    participant DB as Database
-    participant Device as ESP32/Arduino
-    participant Sim as Wokwi/Đèn mô phỏng
+    actor User as Nguoi van hanh
+    participant App as Flutter/PWA
+    participant API as C# API
+    participant DB as SQLite
+    participant MQTT as MQTT broker
+    participant Device as ESP32/Wokwi
 
-    User->>UI: Chọn mode NIGHT/PRIORITY/EMERGENCY
-    UI->>API: POST /api/commands
-    API->>DB: Lưu control_commands
-    API->>Device: Gửi lệnh điều khiển
-    Device->>Device: ModeManager cập nhật mode
-    Device->>Sim: Bật/tắt LED theo mode
-    Device->>API: Gửi trạng thái hiện tại
-    API->>DB: Lưu traffic_event_logs
-    API->>UI: Trả về trạng thái mới
-    UI->>User: Hiển thị mode và countdown
+    User->>App: Chon mode
+    App->>API: POST /api/intersections/1/commands
+    API->>DB: Insert command (device_status=queued)
+    API->>DB: Update current_mode_code + insert log logic
+    API->>MQTT: Publish command
+    alt Publish thanh cong
+        API->>DB: Mark command = published
+        API-->>App: HTTP 201 + trafficStatus logic
+        MQTT->>Device: Deliver command
+        Device->>Device: Apply mode, doi LED/LCD
+        Device->>MQTT: Publish ACK + status
+        MQTT->>API: ACK/status event
+        API->>DB: Update device_status = acknowledged
+        API->>DB: Upsert device_statuses + insert traffic_event_logs
+        App->>API: GET /dashboard or /status
+        API-->>App: History + last seen + status
+    else Publish loi
+        API->>DB: Mark command = publish_failed
+        API-->>App: HTTP 201 + trafficStatus logic
+    end

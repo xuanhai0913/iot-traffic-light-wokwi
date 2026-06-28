@@ -1,64 +1,108 @@
 classDiagram
     class TrafficLight {
-        -int redPin
-        -int yellowPin
-        -int greenPin
         +begin()
-        +setRed()
-        +setYellow()
-        +setGreen()
+        +setColor(color)
         +turnOff()
     }
 
-    class TrafficPhase {
-        +String name
-        +String nsLight
-        +String ewLight
-        +int durationSeconds
+    class RoadApproach {
+        +setColor(color)
+        +allOff()
+        +name()
+    }
+
+    class PedestrianSignal {
+        +setWalk(enabled)
     }
 
     class ModeManager {
-        -String currentMode
         +setMode(mode)
-        +getMode()
-        +isAuto()
-        +isNight()
-        +isEmergency()
+        +cycleButtonMode()
+        +parseCommand(command)
+    }
+
+    class PhaseConfig {
+        +greenSeconds()
+        +yellowSeconds()
+        +setDuration(phase, seconds)
     }
 
     class DisplayManager {
-        +begin()
         +showMode(mode)
+        +showPhase(phase)
         +showCountdown(seconds)
-        +showLights(nsLight, ewLight)
     }
+
+    class EventLog {
+        +add(level, message)
+        +recentEntries()
+    }
+
+    class IModeStrategy {
+        <<interface>>
+        +enter()
+        +tick(nowMs)
+        +phaseCode()
+    }
+
+    class AutoMode
+    class NightMode
+    class PriorityNSMode
+    class PriorityEWMode
+    class EmergencyMode
+    class MaintenanceMode
 
     class IntersectionController {
-        -TrafficLight nsLight
-        -TrafficLight ewLight
-        -ModeManager modeManager
-        -DisplayManager displayManager
         +begin()
         +update()
-        +runAuto()
-        +runNight()
-        +runPriority(direction)
-        +runEmergency()
+        +applyExternalCommand(cmd)
+        +buildStatusJson()
     }
 
-    class CommandRepository {
-        +saveCommand(command)
-        +listRecentCommands()
+    class MqttClientManager {
+        +connect()
+        +handleIncomingCommand()
+        +publishStatus()
+        +publishAck()
     }
 
-    class TrafficLogRepository {
-        +saveLog(state)
-        +listRecentLogs()
+    class TrafficRepository {
+        +InsertCommandAsync()
+        +MarkCommandPublishedAsync()
+        +UpsertDeviceStatusAsync()
     }
 
-    IntersectionController --> TrafficLight
-    IntersectionController --> TrafficPhase
+    class TrafficService {
+        +HandleCommandAsync()
+        +GetDashboardAsync()
+        +UpdatePhasePlanDurationsAsync()
+    }
+
+    class ITrafficCommandPublisher {
+        <<interface>>
+        +PublishCommandAsync()
+    }
+
+    class MqttTrafficBridge {
+        +PublishCommandAsync()
+        +StartAsync()
+    }
+
+    RoadApproach --> TrafficLight
+    RoadApproach --> PedestrianSignal
     IntersectionController --> ModeManager
+    IntersectionController --> PhaseConfig
     IntersectionController --> DisplayManager
-    ModeManager --> CommandRepository
-    IntersectionController --> TrafficLogRepository
+    IntersectionController --> EventLog
+    IntersectionController --> IModeStrategy
+    IModeStrategy <|.. AutoMode
+    IModeStrategy <|.. NightMode
+    IModeStrategy <|.. PriorityNSMode
+    IModeStrategy <|.. PriorityEWMode
+    IModeStrategy <|.. EmergencyMode
+    IModeStrategy <|.. MaintenanceMode
+    MqttClientManager --> IntersectionController
+    TrafficService --> TrafficRepository
+    TrafficService --> ITrafficCommandPublisher
+    ITrafficCommandPublisher <|.. MqttTrafficBridge
+    MqttTrafficBridge --> TrafficRepository

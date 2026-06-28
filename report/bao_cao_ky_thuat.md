@@ -1,6 +1,6 @@
 # Báo cáo kỹ thuật hệ thống đèn giao thông IoT
 
-> Trạng thái tài liệu: đối chiếu repository ngày 15/06/2026. Tài liệu mô tả đúng trạng thái mã nguồn hiện có, không khẳng định thay cho kiểm thử phần cứng hoặc nghiệm thu thực tế.
+> Trạng thái tài liệu: đối chiếu repository ngày 28/06/2026. Tài liệu mô tả đúng trạng thái mã nguồn hiện có, không khẳng định thay cho kiểm thử phần cứng hoặc nghiệm thu thực tế.
 
 ## 1. Quy ước mức độ xác nhận
 

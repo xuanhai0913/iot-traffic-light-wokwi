@@ -1,6 +1,6 @@
 # Ma trận tiêu chí môn IoT
 
-> Đánh giá repository ngày 15/06/2026. “Đạt source” nghĩa là có implementation trong mã; không đồng nghĩa đã có đầy đủ evidence nghiệm thu.
+> Đánh giá repository ngày 28/06/2026. “Đạt source” nghĩa là có implementation trong mã; không đồng nghĩa đã có đầy đủ evidence nghiệm thu.
 
 ## 1. Yêu cầu chức năng bắt buộc
 

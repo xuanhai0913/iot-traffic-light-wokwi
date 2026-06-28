@@ -1,53 +1,121 @@
 erDiagram
-    INTERSECTIONS ||--o{ PHASE_CONFIGS : has
-    INTERSECTIONS ||--o{ CONTROL_COMMANDS : receives
-    INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : logs
-    TRAFFIC_MODES ||--o{ PHASE_CONFIGS : configures
+    INTERSECTIONS ||--o{ ROAD_APPROACHES : has
+    ROAD_APPROACHES ||--o{ SIGNAL_HEADS : owns
+    INTERSECTIONS ||--o{ PHASE_PLANS : has
+    PHASE_PLANS ||--o{ PHASE_STEPS : contains
+    PHASE_STEPS ||--o{ PHASE_SIGNAL_STATES : applies
+    SIGNAL_HEADS ||--o{ PHASE_SIGNAL_STATES : receives
+    INTERSECTIONS ||--o{ CONFLICT_RULES : defines
+    ROAD_APPROACHES ||--o{ CONFLICT_RULES : source
+    ROAD_APPROACHES ||--o{ CONFLICT_RULES : target
     TRAFFIC_MODES ||--o{ CONTROL_COMMANDS : used_by
+    INTERSECTIONS ||--o{ CONTROL_COMMANDS : receives
     TRAFFIC_MODES ||--o{ TRAFFIC_EVENT_LOGS : appears_in
+    INTERSECTIONS ||--o{ TRAFFIC_EVENT_LOGS : logs
+    INTERSECTIONS ||--o{ DEVICE_STATUSES : monitors
 
     INTERSECTIONS {
         int id PK
         string name
         string location
         string status
+        string current_mode_code
+        int active_phase_plan_id FK
         datetime created_at
+        datetime updated_at
+    }
+
+    ROAD_APPROACHES {
+        int id PK
+        int intersection_id FK
+        string code
+        string name
+        int display_order
+        boolean is_active
+    }
+
+    SIGNAL_HEADS {
+        int id PK
+        int road_approach_id FK
+        string code
+        string type
+        int red_pin
+        int yellow_pin
+        int green_pin
+        boolean is_active
     }
 
     TRAFFIC_MODES {
         int id PK
         string code UK
         string name
+        int priority_level
         string description
     }
 
-    PHASE_CONFIGS {
+    PHASE_PLANS {
         int id PK
         int intersection_id FK
-        string mode_code FK
-        string direction
-        int green_seconds
-        int yellow_seconds
-        int red_seconds
+        string name
         boolean is_active
+    }
+
+    PHASE_STEPS {
+        int id PK
+        int phase_plan_id FK
+        string code
+        int sequence_no
+        int duration_seconds
+    }
+
+    PHASE_SIGNAL_STATES {
+        int id PK
+        int phase_step_id FK
+        int signal_head_id FK
+        string light_color
+    }
+
+    CONFLICT_RULES {
+        int id PK
+        int intersection_id FK
+        int source_approach_id FK
+        int target_approach_id FK
+        string reason
     }
 
     CONTROL_COMMANDS {
         int id PK
         int intersection_id FK
-        string command
         string mode_code FK
+        string command
         string source
         string created_by
+        string status
+        string device_status
+        string mqtt_topic
+        datetime published_at
+        datetime acknowledged_at
         datetime created_at
+    }
+
+    DEVICE_STATUSES {
+        int id PK
+        int intersection_id FK
+        string device_id
+        string connection_state
+        string last_mode_code
+        string last_phase_code
+        int last_remaining_seconds
+        string last_status_json
+        datetime last_seen_at
     }
 
     TRAFFIC_EVENT_LOGS {
         int id PK
         int intersection_id FK
         string mode_code FK
-        string ns_light
-        string ew_light
+        string phase_code
         int remaining_seconds
+        string status_json
         datetime created_at
     }

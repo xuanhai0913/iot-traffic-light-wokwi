@@ -1,14 +1,27 @@
-flowchart LR
-    Input["Input: button / dashboard command"]
-    Validate["Kiểm tra lệnh"]
-    Mode["Cập nhật mode"]
-    Control["Điều khiển LED + countdown"]
-    Log["Ghi log trạng thái"]
-    Output["Output: đèn, LCD, dashboard"]
+flowchart TD
+    Remote["Flutter/PWA gui command"]
+    Local["Button / Serial command tai Wokwi"]
+    Api["POST /api/intersections/1/commands"]
+    Guard["TrafficService validate + emergency guard"]
+    CommandDb["SQLite: control_commands = queued/published/acknowledged"]
+    Publish["MQTT publish command"]
+    Firmware["ModeManager + IntersectionController"]
+    Render["LED/LCD doi trang thai"]
+    Status["ESP32 publish status + ACK"]
+    StatusDb["SQLite: device_statuses + traffic_event_logs"]
+    Read["GET /dashboard va /status"]
+    User["Nguoi van hanh xem app va Wokwi"]
 
-    Input --> Validate
-    Validate --> Mode
-    Mode --> Control
-    Control --> Log
-    Control --> Output
-    Log --> Output
+    Remote --> Api
+    Api --> Guard
+    Guard --> CommandDb
+    Guard --> Publish
+    Publish --> Firmware
+    Local --> Firmware
+    Firmware --> Render
+    Firmware --> Status
+    Status --> StatusDb
+    CommandDb --> Read
+    StatusDb --> Read
+    Read --> User
+    Render --> User

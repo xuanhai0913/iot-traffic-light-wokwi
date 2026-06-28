@@ -1,19 +1,30 @@
 sequenceDiagram
-    actor Operator as Người vận hành
-    participant App as Mobile App / PWA
-    participant API as Backend API
-    participant DB as Database
-    participant Broker as MQTT / HTTP Gateway
-    participant ESP32 as ESP32 Controller
-    participant Lights as Đèn giao thông
+    actor Operator as Nguoi van hanh
+    participant Phone as Flutter app tren dien thoai
+    participant API as C# API
+    participant DB as SQLite
+    participant MQTT as MQTT broker
+    participant ESP32 as ESP32/Wokwi
 
-    Operator->>App: Chọn AUTO / NIGHT / PRIORITY / EMERGENCY
-    App->>API: POST /api/commands
-    API->>DB: Lưu control_commands
-    API->>Broker: Publish command
-    Broker->>ESP32: Gửi lệnh điều khiển
-    ESP32->>Lights: Cập nhật trạng thái đèn
-    ESP32->>Broker: Publish trạng thái mới
-    Broker->>API: Nhận status event
-    API->>DB: Lưu traffic_event_logs
-    API->>App: Trả status / countdown
+    Operator->>Phone: Nhap API URL va bam Test
+    Phone->>API: GET /health
+    API-->>Phone: status ok
+
+    Operator->>Phone: Gui SET_PRIORITY_NS
+    Phone->>API: POST /commands
+    API->>DB: Luu command + mode logic
+    API->>MQTT: Publish command
+    API-->>Phone: 201 Created
+
+    MQTT->>ESP32: Command
+    ESP32->>ESP32: ModeManager + IntersectionController xu ly
+    ESP32->>MQTT: ACK + status moi
+    MQTT->>API: Forward ACK/status
+    API->>DB: Update acknowledged + device last seen
+
+    loop Moi 1 giay khi online
+        Phone->>API: GET /dashboard
+        API-->>Phone: command history + device status
+    end
+
+    Phone-->>Operator: Thay history, mode va last seen
