@@ -36,7 +36,7 @@
 | MQTT bridge kết nối `broker.hivemq.com:1883` | OK (xem `GET /api/mqtt/status` trả về `connected: true`) |
 | Wokwi ESP32 đang chạy và subscribe đúng topic | OK (xem Serial Monitor) |
 | Flutter web build đã serve ở `http://localhost:8080` | OK (sau commit `d353b8a` + `c1eec4f`, `flutter build web --release`) |
-| Schema SQLite đã khởi tạo với `intersectionId=1` | OK (file `backend/traffic.db` tồn tại, schema từ `backend/schema.sql`) |
+| Schema SQLite đã khởi tạo với `intersectionId=1` | OK trong phiên test đó (backend tạo file `traffic.db` runtime từ `backend/schema.sql`) |
 
 ## 4. Bảng kết quả tổng hợp
 

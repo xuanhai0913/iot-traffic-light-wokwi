@@ -2,12 +2,12 @@
 
 ## Kết luận khả thi
 
-Khả thi và phù hợp với đề tài IoT, nhưng nên trình bày theo 2 lớp:
+Khả thi và phù hợp với đề tài IoT. Ở trạng thái hiện tại, dự án đã có cả hai lớp:
 
-- **Trong demo hiện tại:** dùng mobile web/PWA mock để mô phỏng màn hình điều khiển, lịch sử lệnh và trạng thái giao lộ.
-- **Trong triển khai thực tế:** app mobile gửi lệnh qua backend API hoặc MQTT broker; ESP32 nhận lệnh qua WiFi và gửi trạng thái ngược lại.
+- **Trong demo hiện tại:** PWA trong `mobile_app/` và Flutter app source trong `flutter_app/` gọi backend C# thật.
+- **Trong triển khai mô phỏng thiết bị:** backend publish command qua MQTT broker để ESP32/Wokwi nhận lệnh và gửi ACK/status ngược lại.
 
-Không nên nói app mobile điều khiển trực tiếp Wokwi, vì Wokwi chủ yếu là môi trường mô phỏng. Cách nói đúng hơn là: Wokwi mô phỏng thiết bị, mobile app mô phỏng lớp vận hành/giám sát.
+Không nên nói app mobile điều khiển trực tiếp Wokwi. Cách nói đúng hơn là: app/PWA điều khiển backend, backend điều phối MQTT, còn Wokwi mô phỏng lớp thiết bị.
 
 ## Implement đã bổ sung
 
@@ -15,18 +15,21 @@ Không nên nói app mobile điều khiển trực tiếp Wokwi, vì Wokwi chủ
 |---|---|
 | `mobile_app/index.html` | Giao diện mobile điều khiển |
 | `mobile_app/styles.css` | Giao diện responsive/PWA |
-| `mobile_app/app.js` | Logic mock state machine, command history, countdown |
+| `mobile_app/app.js` | Logic gọi backend, dashboard, phase plan, history và settings |
 | `mobile_app/manifest.webmanifest` | Cấu hình PWA cơ bản |
+| `flutter_app/lib/main.dart` | Flutter operator app source |
+| `backend/Program.cs` | REST API, SQLite và MQTT bridge |
 | `assets/diagrams/mobile_command_flow.mmd` | Sequence flow app gửi lệnh đến ESP32 |
 
-## Chức năng mobile mock
+## Chức năng hiện có
 
 - Hiển thị mode hiện tại.
 - Hiển thị pha hiện tại và countdown.
-- Hiển thị trạng thái đèn Bắc-Nam và Đông-Tây.
-- Gửi lệnh mock: `AUTO`, `NIGHT`, `PRIORITY NS`, `PRIORITY EW`, `EMERGENCY`.
-- Cấu hình thời gian đèn xanh/vàng ở mức local mock.
-- Lưu lịch sử lệnh trong `localStorage`.
+- Hiển thị trạng thái bốn hướng NORTH/SOUTH/EAST/WEST.
+- Gửi lệnh `AUTO`, `NIGHT`, `PRIORITY NS`, `PRIORITY EW`, `EMERGENCY` qua API.
+- Xem command history từ SQLite backend.
+- Xem phase plan, device status, roads/approaches và metrics.
+- PWA lưu `API base URL` vào `localStorage`; Flutter lưu cấu hình qua `SharedPreferences`.
 
 ## Kiến trúc đề xuất để đưa vào báo cáo
 
@@ -55,11 +58,12 @@ flowchart LR
 
 | Method | Endpoint | Mục đích |
 |---|---|---|
-| `GET` | `/api/status` | Lấy trạng thái hiện tại |
-| `POST` | `/api/commands` | Gửi lệnh đổi mode |
-| `GET` | `/api/commands` | Xem lịch sử lệnh |
-| `GET` | `/api/phase-configs` | Xem cấu hình pha |
-| `PUT` | `/api/phase-configs/:id` | Cập nhật thời gian pha |
+| `GET` | `/api/intersections/1/dashboard` | Lấy snapshot dashboard |
+| `GET` | `/api/intersections/1/status` | Lấy trạng thái hiện tại |
+| `POST` | `/api/intersections/1/commands` | Gửi lệnh đổi mode |
+| `GET` | `/api/intersections/1/commands` | Xem lịch sử lệnh |
+| `GET` | `/api/intersections/1/phase-plans` | Xem phase plan |
+| `PUT` | `/api/phase-plans/:id` | Cập nhật thời gian pha |
 
 Ví dụ body gửi lệnh:
 
@@ -74,30 +78,25 @@ Ví dụ body gửi lệnh:
 
 ## Lộ trình tối ưu
 
-### Mức 1 - Đủ nộp, ít rủi ro
+### Mức hiện tại - Đã triển khai trong repo
 
-- Wokwi chạy đủ 4 mode.
-- Mobile app mock thể hiện màn hình điều khiển và lịch sử lệnh.
-- Report ghi rõ app hiện là mock UI, chưa kết nối trực tiếp thiết bị.
+- Wokwi chạy đủ 5 mode chính: `AUTO`, `NIGHT`, `PRIORITY_NS`, `PRIORITY_EW`, `EMERGENCY`.
+- PWA và Flutter app gọi backend C# thật.
+- SQLite lưu command history, phase plan, approaches, signal heads, logs và device status.
+- Backend publish command qua MQTT và nhận ACK/status từ Wokwi.
 
-### Mức 2 - Có backend mô phỏng
+### Mức nâng cấp tiếp theo
 
-- Tạo API nhỏ bằng Node.js/Express hoặc Python FastAPI.
-- Mobile app gọi `POST /api/commands`.
-- Database SQLite lưu `control_commands` và `traffic_event_logs`.
-- ESP32/Wokwi vẫn chạy độc lập nhưng báo cáo thể hiện được flow thực tế.
-
-### Mức 3 - Gần thực tế IoT
-
-- Dùng ESP32 thật hoặc Wokwi + MQTT bridge nếu có điều kiện.
-- App gửi lệnh qua MQTT topic như `traffic/intersection-1/commands`.
-- ESP32 publish trạng thái qua `traffic/intersection-1/status`.
-- Dashboard/mobile đọc trạng thái realtime.
+- Đồng bộ phase duration backend -> firmware theo command cấu hình có xác nhận áp dụng.
+- Tăng an toàn đèn: all-red clearance, conflict enforcement, watchdog.
+- Hoàn thiện bảo mật và độ tin cậy production: auth, TLS, retry, outbox, idempotency.
 
 ## Đề xuất chốt cho nhóm
 
-Với deadline môn học và không có phần cứng thật, nên chọn **Mức 1 + thiết kế rõ Mức 2/Mức 3**. Đây là hướng cân bằng nhất:
+Với trạng thái repo hiện tại, nên trình bày dự án theo ba lớp:
 
-- Demo không bị phụ thuộc phần cứng.
-- Vẫn thể hiện IoT, database, OOP, mobile app và kiến trúc thực tế.
-- Dễ trình bày trong slide: Wokwi là lớp thiết bị, mobile app là lớp vận hành, database/backend là lớp mở rộng.
+- Wokwi/ESP32 là lớp thiết bị.
+- Backend C# + SQLite + MQTT là lớp điều phối.
+- PWA/Flutter là lớp vận hành.
+
+Đây là cách kể đúng nhất với source hiện tại và cũng là cách dễ ăn điểm nhất khi trình bày.

@@ -52,10 +52,10 @@ flowchart LR
 |---|---|---|
 | Flutter operator app | `flutter_app/lib/main.dart` | Đã xác nhận từ mã nguồn |
 | REST API và MQTT bridge | `backend/Program.cs` | Đã xác nhận từ mã nguồn |
-| CSDL | `backend/schema.sql`, `backend/traffic.db` | Đã xác nhận từ mã nguồn/file |
+| CSDL | `backend/schema.sql` và logic tạo `traffic.db` khi runtime | Đã xác nhận từ mã nguồn; file `.db` là artifact local không commit |
 | Firmware ESP32 | `wokwi/sketch.ino` | Đã xác nhận từ mã nguồn |
 | Mạch mô phỏng | `wokwi/diagram.json` | Đã xác nhận từ mã nguồn |
-| APK release | `dist/android/iot-traffic-light-v1.0.0.apk` | Đã build release ngày 15/06/2026, chưa cài thử trên điện thoại thật |
+| APK release | Build script `scripts/build-flutter-android.ps1` -> `dist/android/iot-traffic-light-v1.0.0.apk` | Đã có ghi nhận build release ngày 15/06/2026; file output không phải lúc nào cũng nằm sẵn trong repo |
 | Backend build/smoke/integration test | Release build và 8 integration tests | Đã chạy lại cục bộ ngày 15/06/2026 |
 | MQTT end-to-end | Backend command history và device status | Đã xác nhận runtime: device `wokwi-esp32-01`, command IDs 22-26 `acknowledged` |
 | Ảnh/video Wokwi | `assets/wokwi/wokwi_*.png` | Đã có ảnh compile/run và 5 ảnh mode; chưa có video cuối |

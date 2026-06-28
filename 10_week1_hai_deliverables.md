@@ -18,8 +18,8 @@ Tên đề tài:
 
 MVP bắt buộc:
 
-- 1 giao lộ gồm 2 hướng: Bắc-Nam và Đông-Tây.
-- Mỗi hướng có 3 đèn: đỏ, vàng, xanh.
+- 1 giao lộ gồm 2 trục điều khiển Bắc-Nam và Đông-Tây, hiển thị 4 cụm NORTH/SOUTH/EAST/WEST.
+- Mỗi cụm có 3 đèn: đỏ, vàng, xanh.
 - ESP32 DevKit là bộ điều khiển chính.
 - LCD 16x2 I2C hiển thị mode và countdown.
 - 4 chế độ vận hành:
@@ -32,8 +32,8 @@ MVP bắt buộc:
 
 Không làm trong MVP:
 
-- Không làm app mobile native.
-- Không kết nối database thật với Wokwi trong bản demo.
+- Không làm app mobile native trong Week 1.
+- Không phụ thuộc database/MQTT để hoàn thành mốc Week 1.
 - Không mô phỏng nhiều giao lộ.
 - Không làm thuật toán AI/tối ưu giao thông nâng cao.
 
@@ -55,10 +55,9 @@ Các source Mermaid nằm trong `assets/diagrams/`.
 | Linh kiện | Số lượng | Vai trò |
 |---|---:|---|
 | ESP32 DevKit | 1 | Bộ điều khiển chính |
-| LED đỏ | 2 | Đèn đỏ cho 2 hướng |
-| LED vàng | 2 | Đèn vàng cho 2 hướng |
-| LED xanh | 2 | Đèn xanh cho 2 hướng |
-| Điện trở 220Ω | 6 | Hạn dòng LED |
+| LED đỏ/vàng/xanh xe | 12 | 4 cụm đèn NORTH/SOUTH/EAST/WEST |
+| LED xanh người đi bộ | 4 | Minh họa hướng đi bộ |
+| Điện trở 220Ω | 16 | Hạn dòng LED |
 | LCD 16x2 I2C | 1 | Hiển thị mode và countdown |
 | Button | 4 | Đổi mode AUTO/NIGHT/PRIORITY/EMERGENCY |
 
@@ -78,13 +77,14 @@ Các source Mermaid nằm trong `assets/diagrams/`.
 | Button EMERGENCY | 33 | Input pull-up |
 | LCD SDA | 21 | I2C |
 | LCD SCL | 22 | I2C |
+| Pedestrian N/S/E/W | 4, 5, 12, 13 | Output |
 
 Quy ước button: một chân nối GPIO, một chân nối GND, code dùng `INPUT_PULLUP`.
 
 ## 5. Tiêu chí nghiệm thu Week 1
 
 - [x] Chốt tên đề tài và scope MVP.
-- [x] Chốt không làm app native/database thật trong MVP.
+- [x] Chốt không phụ thuộc app native hoặc phần cứng thật trong MVP.
 - [x] Chốt dùng ESP32 DevKit.
 - [x] Chốt linh kiện Wokwi.
 - [x] Chốt pin map ESP32.
@@ -93,7 +93,10 @@ Quy ước button: một chân nối GPIO, một chân nối GND, code dùng `IN
 
 ## 6. Việc chuyển sang Week 2
 
-- Nguyễn Xuân Hải dựng mạch Wokwi theo pin map trên.
-- Trần Đình Đức viết code theo state machine và áp dụng OOP.
-- Đức xử lý phần database/ERD/report/slide liên quan theo issue đã assign.
+- Kế hoạch ban đầu: Nguyễn Xuân Hải dựng mạch Wokwi theo pin map trên.
+- Kế hoạch ban đầu: Trần Đình Đức viết code theo state machine và áp dụng OOP.
+- Kế hoạch ban đầu: Đức xử lý phần database/ERD/report/slide liên quan theo issue đã assign.
 
+### Ghi chú đối chiếu sản phẩm nộp cuối
+
+Khi hoàn thiện bản nộp thực tế, phần lớn implementation và tích hợp cuối của hệ thống được ghi nhận ở phía Nguyễn Xuân Hải. Trần Đình Đức chủ yếu hỗ trợ phần database/ERD và một phần tài liệu Word/PPT. Vì vậy khi dùng tài liệu này trong report hoặc slide, cần phân biệt rõ giữa **phân công dự kiến ban đầu** và **đóng góp thực tế ở bản nộp cuối**.

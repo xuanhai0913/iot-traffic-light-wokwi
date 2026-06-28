@@ -13,12 +13,11 @@ Nhóm chốt dùng ESP32 DevKit để bài có màu IoT rõ hơn Arduino Uno và
 | Linh kiện | Số lượng | Mục đích |
 |---|---:|---|
 | ESP32 DevKit | 1 | Bộ điều khiển chính |
-| LED đỏ | 2 | Đèn đỏ cho 2 hướng |
-| LED vàng | 2 | Đèn vàng cho 2 hướng |
-| LED xanh | 2 | Đèn xanh cho 2 hướng |
-| Điện trở 220Ω | 6 | Hạn dòng LED |
+| LED đỏ/vàng/xanh xe | 12 | 4 cụm đèn NORTH/SOUTH/EAST/WEST |
+| LED xanh người đi bộ | 4 | Minh họa hướng đi bộ |
+| Điện trở 220Ω | 16 | Hạn dòng LED |
 | LCD 16x2 I2C | 1 | Hiển thị trạng thái/countdown |
-| Button | 3-4 | Chuyển chế độ |
+| Button | 4 | Chuyển chế độ |
 
 ## Pin map đã chốt
 
@@ -36,6 +35,10 @@ Nhóm chốt dùng ESP32 DevKit để bài có màu IoT rõ hơn Arduino Uno và
 | Button EMERGENCY | 33 |
 | LCD SDA | 21 |
 | LCD SCL | 22 |
+| Pedestrian N | 4 |
+| Pedestrian S | 5 |
+| Pedestrian E | 12 |
+| Pedestrian W | 13 |
 
 Ghi chú: các button nối về GND và dùng `INPUT_PULLUP` trong code.
 
@@ -56,8 +59,8 @@ Ghi chú: các button nối về GND và dùng `INPUT_PULLUP` trong code.
 
 ### 3. PRIORITY
 
-- Ưu tiên một hướng xanh lâu hơn.
-- Hướng còn lại đỏ.
+- Có hai trạng thái `PRIORITY NS` và `PRIORITY EW`.
+- Hướng ưu tiên xanh, hướng còn lại đỏ.
 - LCD hiển thị `PRIORITY NS` hoặc `PRIORITY EW`.
 
 ### 4. EMERGENCY

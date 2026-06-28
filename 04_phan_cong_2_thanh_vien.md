@@ -1,81 +1,73 @@
-# 04. Phân Công 2 Thành Viên
+# 04. Phân Công Và Mức Độ Hoàn Thành Thực Tế
+
+> Tài liệu này ghi theo sản phẩm nộp thực tế trong repository, tài liệu trong workspace và artifact demo đang có. Mục tiêu là ghi nhận đúng phần việc đã bàn giao, tách khỏi phân công dự kiến ban đầu.
 
 ## Thành viên nhóm
 
-| Thành viên | Vai trò chính |
-|---|---|
-| Nguyễn Xuân Hải | Nhóm trưởng, chốt scope, thiết kế hệ thống, Wokwi, dashboard mock, demo, tích hợp bản nộp |
-| Trần Đình Đức | Thuật toán, code điều khiển, OOP, database/ERD, nội dung report, slide thuyết trình |
+| Thành viên | Phần phụ trách chính theo sản phẩm nộp | Ghi nhận mức độ đóng góp |
+|---|---|---|
+| Nguyễn Xuân Hải | Nhóm trưởng, chốt scope, thiết kế hệ thống, Wokwi, code điều khiển, backend C#, Flutter/PWA, kiểm thử, demo, tích hợp bản nộp | Phần implementation và tích hợp chính của dự án |
+| Trần Đình Đức | Database/ERD, hỗ trợ nội dung report Word, slide thuyết trình | Hỗ trợ một phần ở mảng CSDL và tài liệu; không phải phần implementation chính |
 
 ## Nguyễn Xuân Hải
 
-Vai trò: nhóm trưởng, chốt scope, tích hợp mô phỏng, kiểm thử, review toàn bộ sản phẩm và đóng gói bản nộp cuối.
+Vai trò thực tế: nhóm trưởng và người thực hiện phần lớn khối lượng kỹ thuật của bản nộp cuối.
 
-### Nhiệm vụ chính
+### Phần việc ghi nhận thực tế
 
-- Chốt scope MVP với nhóm.
-- Quản lý folder OneDrive, GitHub repo và tiến độ.
-- Chia task, theo dõi deadline, nhắc việc và tháo blocker.
-- Thiết kế sơ đồ tổng thể, pin map và hướng triển khai Wokwi.
-- Review ERD, database schema và thiết kế phần dashboard mock.
-- Dựng mạch Wokwi hoặc hỗ trợ dựng mạch.
-- Tích hợp code của Đức vào mạch Wokwi.
-- Chụp ảnh mạch, quay video/GIF demo.
-- Kiểm thử các chế độ mô phỏng.
-- Review báo cáo và slide trước khi nộp.
-- Tích hợp report, slide, source code, assets, demo để nộp.
+- Chốt scope MVP, cấu trúc thư mục, timeline và hướng triển khai.
+- Quản lý folder OneDrive, GitHub repo, issue flow và tiến độ.
+- Thiết kế sơ đồ tổng thể, pin map, kiến trúc app -> API -> MQTT -> ESP32/Wokwi.
+- Dựng và hoàn thiện mạch Wokwi, tích hợp LCD, nút nhấn, sơ đồ chân và ảnh chụp mô phỏng.
+- Thực hiện và hoàn thiện code điều khiển đèn, state machine, mode AUTO/NIGHT/PRIORITY/EMERGENCY, countdown và OOP trong `wokwi/sketch.ino`.
+- Thực hiện backend C# ASP.NET Core, SQLite schema thực tế, MQTT bridge và integration tests.
+- Thực hiện Flutter app, PWA, script verify/build/demo và các tài liệu kỹ thuật chính.
+- Kiểm thử, chụp evidence, rà báo cáo/slide và tích hợp bản nộp cuối.
 
-### Deliverable
+### Deliverable thực tế
 
-- Folder dự án hoàn chỉnh.
-- GitHub repo và issue flow.
-- Sơ đồ kiến trúc, pin map và review database.
-- Mạch Wokwi và ảnh chụp mô phỏng.
-- Dashboard/app mock ở mức trình bày.
-- Video/GIF demo.
-- Bản PDF, slide và file nộp cuối.
+- Repo dự án hoàn chỉnh.
+- Firmware `wokwi/sketch.ino`, `diagram.json` và assets mô phỏng.
+- Backend `backend/` với API, SQLite, MQTT và test.
+- Flutter app `flutter_app/` và PWA `mobile_app/`.
+- Tài liệu kỹ thuật, checklist demo, script build/test và cấu trúc bản nộp cuối.
 
 ## Trần Đình Đức
 
-Vai trò: phụ trách thuật toán, code điều khiển, OOP, nội dung báo cáo và slide.
+Vai trò thực tế: hỗ trợ phần CSDL/ERD và một phần tài liệu trình bày.
 
-### Nhiệm vụ chính
+### Phần việc ghi nhận thực tế
 
-- Thiết kế state machine điều khiển đèn.
-- Viết code AUTO mode.
-- Viết code NIGHT mode.
-- Viết code PRIORITY mode.
-- Viết code EMERGENCY mode.
-- Viết code countdown LCD/7-seg.
-- Thiết kế ERD/database schema theo `08_requirements.md`.
-- Áp dụng OOP vào code: `TrafficLight`, `TrafficPhase`, `IntersectionController`, `ModeManager`, `DisplayManager`.
-- Viết phần giải thích thuật toán, OOP và code trong báo cáo.
-- Viết nội dung report bản nháp.
-- Làm slide outline và nội dung chính cho phần thuật toán/code.
+- Hỗ trợ phần database/ERD theo hướng yêu cầu trong `08_requirements.md`.
+- Hỗ trợ một phần nội dung report Word và slide thuyết trình.
+- Phối hợp theo phân công ban đầu ở các hạng mục tài liệu.
 
-### Deliverable
+### Ghi chú phạm vi đóng góp
 
-- `sketch.ino` chạy được trên Wokwi.
-- State machine và bảng trạng thái các pha đèn.
-- ERD/database schema và mô tả CSDL.
-- Class/OOP diagram hoặc phần mô tả OOP.
-- Đoạn giải thích code cho report.
-- Nội dung report/slide phần thuật toán và chương trình.
+- Ở trạng thái repository hiện tại, không ghi nhận đầy đủ bằng chứng độc lập cho việc Trần Đình Đức thực hiện các hạng mục implementation chính như Wokwi, firmware, backend C#, Flutter app, test và tích hợp demo cuối.
+- Vì vậy các phần kỹ thuật lõi của bản nộp không nên ghi nhận là do Trần Đình Đức thực hiện chính.
 
-## Phân chia phần thuyết trình
+### Deliverable ghi nhận
 
-| Người | Nội dung nói | Thời lượng |
+- Một phần nội dung CSDL/ERD.
+- Một phần nội dung Word/PPT phục vụ thuyết trình.
+
+## Bản ngắn để đưa vào report hoặc slide
+
+| Thành viên | Đóng góp thực tế |
+|---|---|
+| Nguyễn Xuân Hải | Thực hiện phần chính của dự án: scope, kiến trúc hệ thống, Wokwi, code điều khiển, backend C#, Flutter/PWA, kiểm thử, demo và tích hợp bản nộp cuối |
+| Trần Đình Đức | Hỗ trợ phần database/ERD và một phần nội dung report Word, slide thuyết trình |
+
+## Phân chia phần thuyết trình nên dùng
+
+| Người | Nội dung nói | Thời lượng gợi ý |
 |---|---|---:|
-| Nguyễn Xuân Hải | Giới thiệu đề tài, scope, kiến trúc hệ thống, ERD/CSDL, Wokwi demo, kết quả | 5-6 phút |
-| Trần Đình Đức | Thuật toán/state machine, code điều khiển, OOP, các chế độ AUTO/NIGHT/PRIORITY/EMERGENCY | 5-6 phút |
+| Nguyễn Xuân Hải | Giới thiệu đề tài, scope, kiến trúc hệ thống, Wokwi, code điều khiển, backend/app, demo và kết quả | 7-9 phút |
+| Trần Đình Đức | Database/ERD và phần tổng hợp tài liệu, slide | 2-4 phút |
 
-## Quyền chốt của nhóm trưởng
+## Cách trình bày với giáo viên
 
-Để tránh dự án bị lan man, Nguyễn Xuân Hải là người chốt cuối các phần sau:
+Không nên dùng các từ cảm tính như "lười", "không làm gì". Nên trình bày theo mẫu:
 
-- Chế độ nào bắt buộc demo, chế độ nào chỉ là mở rộng.
-- Mạch Wokwi bản cuối.
-- Database schema do Đức làm, Hải review trước khi đưa vào report/slide.
-- Code cuối cùng đưa vào báo cáo.
-- Ảnh/video/GIF demo dùng trong slide.
-- Cấu trúc report và slide trước khi nộp.
+> Nhóm có phân công ban đầu cho cả hai thành viên. Tuy nhiên khi hoàn thiện sản phẩm nộp thực tế, phần lớn implementation và tích hợp cuối do Nguyễn Xuân Hải thực hiện; Trần Đình Đức hỗ trợ chủ yếu ở phần CSDL/ERD và tài liệu trình bày. Bảng này ghi theo sản phẩm đã bàn giao, không chỉ theo kế hoạch phân công ban đầu.

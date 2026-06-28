@@ -20,14 +20,13 @@ Không dùng riêng HTTP `201` để kết luận ESP32 đã đổi đèn. Cần
 
 - Laptop chạy backend và Wokwi.
 - Điện thoại Android và laptop cùng WiFi, hoặc backend đã deploy công khai.
-- APK hiện có trong workspace:
+- APK expected output sau khi chạy script build:
 
 ```text
 dist/android/iot-traffic-light-v1.0.0.apk
 ```
 
-Artifact này được build lại ngày 15/06/2026, dung lượng khoảng 47,7 MB,
-nhưng chưa được cài thử trên điện thoại thật.
+Nếu file chưa có trong workspace hiện tại, hãy chạy lại `scripts/build-flutter-android.ps1` trước buổi demo. APK vẫn chưa được cài thử trên điện thoại thật trong lượt rà soát tài liệu này.
 
 ## 3. Cách A: backend chạy trên laptop
 
@@ -106,7 +105,7 @@ Trong app:
 3. Nhấn **Apply** hoặc **Test**.
 4. Xác nhận `Connected`.
 
-URL được giữ trong state của phiên chạy, chưa lưu bền vững. Sau khi đóng/mở app có thể phải nhập lại.
+Flutter app lưu `API base URL` qua `SharedPreferences`. Thông thường sau khi đóng/mở app không cần nhập lại trừ khi xóa dữ liệu ứng dụng.
 
 ## 4. Kịch bản trình bày 3-5 phút
 

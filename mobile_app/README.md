@@ -35,4 +35,4 @@ http://localhost:4173/mobile_app/
 
 ## Ghi chu
 
-Wokwi/ESP32 van chay doc lap bang button/Serial trong Muc 1-2. Backend va app dung cung command workflow de demo lop van hanh va database; ban nang cao co the noi ESP32 voi backend bang MQTT.
+Wokwi/ESP32 van ho tro button/Serial de test local, nhung repo hien tai da noi backend voi ESP32/Wokwi bang MQTT. PWA va backend dung cung command workflow de demo lop van hanh, database va luong ACK/status end-to-end.

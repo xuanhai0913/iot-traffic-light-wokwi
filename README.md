@@ -27,6 +27,7 @@ Xây dựng một mô hình đèn giao thông tại 1 giao lộ có thể mô ph
 - [10_week1_hai_deliverables.md](./10_week1_hai_deliverables.md): phần Week 1 đã chốt của Nguyễn Xuân Hải gồm scope, sơ đồ hệ thống, linh kiện và pin map.
 - [11_week2_wokwi_code_test.md](./11_week2_wokwi_code_test.md): phần Week 2 gồm mạch Wokwi, code OOP, mode điều khiển và checklist test.
 - [12_mobile_app_extension.md](./12_mobile_app_extension.md): hướng triển khai mobile app/PWA điều khiển, kiến trúc thực tế và roadmap mở rộng.
+- [report/dong_gop_tung_thanh_vien.md](./report/dong_gop_tung_thanh_vien.md): bản ngắn ghi nhận đóng góp từng thành viên theo sản phẩm nộp thực tế để dùng cho report/PPT.
 
 ## Theo dõi công việc trên GitHub
 
@@ -40,7 +41,7 @@ Nhóm dùng label `member: ...` để biết người phụ trách. Các issue c
 ## Cấu trúc thư mục
 
 - `wokwi/`: lưu code Arduino/ESP32 và file `diagram.json`.
-- `mobile_app/`: lưu mobile web/PWA mock để điều khiển và giám sát giao lộ.
+- `mobile_app/`: lưu mobile web/PWA gọi backend C# để điều khiển và giám sát giao lộ.
 - `flutter_app/`: lưu Flutter mobile app source gọi C# API.
 - `backend/`: lưu C# ASP.NET Core API, SQLite schema và MQTT bridge.
 - `report/`: lưu báo cáo Word/PDF.
@@ -112,7 +113,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\build-flutter-android.ps1
 ```
 
-APK output:
+Expected APK output after a successful build:
 
 ```text
 dist/android/iot-traffic-light-v1.0.0.apk

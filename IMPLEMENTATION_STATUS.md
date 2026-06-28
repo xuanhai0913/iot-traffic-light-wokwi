@@ -102,7 +102,7 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 - Flutter widget tests pass. Re-verified on 2026-06-18 via `scripts/verify-flutter.ps1` ("All tests passed!" for `renders traffic operator app`).
 - `scripts/verify-flutter.ps1` automates the T: subst, stale build cleanup, `flutter analyze`, and `flutter test` against the Flutter operator app.
 - Flutter Web release build passes.
-- Android release build passes and produces `dist/android/iot-traffic-light-v1.0.0.apk`.
+- Android release build passed in the latest verified run and wrote `dist/android/iot-traffic-light-v1.0.0.apk` as the build output.
 - Flutter Manage screen was browser-verified on desktop and mobile. Phase-plan save and road enable/disable call the real backend API.
 - Wokwi `diagram.json` parses as valid JSON with 30 parts and 48 connections.
 - `wokwi/sketch.ino` passes a local brace-balance scan that ignores strings/comments.

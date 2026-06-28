@@ -1,5 +1,7 @@
 # 08. Requirements Dự Án
 
+> Bản này được cập nhật theo mức triển khai hiện tại của repository. Một số mục ban đầu là đề xuất hoặc yêu cầu nâng điểm nay đã có implementation thật trong source.
+
 ## Ghi chú định hướng điểm
 
 Để bài lớn có điểm tốt hơn, nhóm không nên chỉ dừng ở mô phỏng đèn giao thông. Nên trình bày rõ cách dự án áp dụng nhiều phần đã học:
@@ -25,7 +27,7 @@ Bộ sơ đồ thiết kế ban đầu nằm ở [09_so_do_thiet_ke.md](./09_so_
 
 | ID | Yêu cầu | Mức ưu tiên | Ghi chú |
 |---|---|---:|---|
-| FR-01 | Hệ thống mô phỏng 1 giao lộ gồm 2 hướng Bắc-Nam và Đông-Tây | Must | Mỗi hướng có đỏ, vàng, xanh |
+| FR-01 | Hệ thống mô phỏng 1 giao lộ gồm 2 trục Bắc-Nam và Đông-Tây, hiển thị 4 cụm NORTH/SOUTH/EAST/WEST | Must | Mỗi cụm có đỏ, vàng, xanh |
 | FR-02 | Hệ thống có chế độ AUTO | Must | Chạy theo chu kỳ xanh-vàng-đỏ |
 | FR-03 | Hệ thống có chế độ NIGHT | Must | Vàng nhấp nháy cảnh báo ban đêm |
 | FR-04 | Hệ thống có chế độ PRIORITY | Must | Ưu tiên một hướng khi cần |
@@ -38,17 +40,17 @@ Bộ sơ đồ thiết kế ban đầu nằm ở [09_so_do_thiet_ke.md](./09_so_
 
 | ID | Yêu cầu | Mức ưu tiên | Ghi chú |
 |---|---|---:|---|
-| ER-01 | Có thiết kế CSDL/ERD cho hệ thống | Should | Dù demo chưa cần database thật vẫn nên trình bày |
-| ER-02 | Có database lưu cấu hình pha đèn và lịch sử lệnh | Should | Có thể dùng SQLite/JSON mock |
+| ER-01 | Có thiết kế CSDL/ERD cho hệ thống | Should | Đã có schema và tài liệu kiến trúc |
+| ER-02 | Có database lưu cấu hình pha đèn và lịch sử lệnh | Should | Đã triển khai SQLite thật trong backend |
 | ER-03 | Code áp dụng OOP | Should | Arduino C++ hoặc dashboard/backend |
-| ER-04 | Có dashboard/mobile web mock | Should | Giao diện điều khiển AUTO/NIGHT/PRIORITY/EMERGENCY |
-| ER-05 | Có API mô phỏng gửi lệnh điều khiển | Should | Mobile app gửi command, backend lưu lịch sử |
+| ER-04 | Có dashboard/mobile web | Should | Đã có PWA và Flutter app source |
+| ER-05 | Có API gửi lệnh điều khiển | Should | Đã có C# API thật + MQTT bridge |
 | ER-06 | Có mô tả kết nối IoT qua WiFi/MQTT/HTTP | Could | Dùng trong báo cáo và slide |
-| ER-07 | Có mobile app/PWA mock | Should | Đã có trong `mobile_app/` |
+| ER-07 | Có mobile app/PWA | Should | Đã có trong `mobile_app/` và `flutter_app/` |
 
-## Thiết kế CSDL đề xuất
+## Thiết kế CSDL và mức triển khai
 
-Nếu làm database thật, dùng SQLite là đủ nhẹ. Nếu không kịp, nhóm vẫn nên đưa schema này vào báo cáo để thể hiện năng lực thiết kế CSDL.
+Repository hiện đã dùng SQLite thật trong `backend/schema.sql`. Phần mô tả dưới đây là mô hình tối thiểu dễ trình bày; schema triển khai thực tế còn mở rộng thêm `approaches`, `signal_heads`, `phase_plans`, `device_statuses` và `conflict_rules`.
 
 ### Bảng `intersections`
 
@@ -140,39 +142,39 @@ OOP có thể áp dụng ở 2 nơi: code điều khiển và dashboard/backend.
 
 ## Yêu cầu dashboard/mobile app
 
-Vì nhóm không có phần cứng thật, dashboard/mobile app nên triển khai theo dạng PWA hoặc web responsive giả lập mobile. Đây là hướng thực tế nhất để demo trên Mac, chụp ảnh đưa vào report và vẫn thể hiện được tư duy IoT.
+Vì nhóm không có phần cứng thật, dashboard/mobile app hiện được triển khai theo hai lớp: PWA trong `mobile_app/` và Flutter app source trong `flutter_app/`. Cả hai đều gọi backend C# thật thay vì chạy mock local thuần.
 
 | ID | Yêu cầu | Ghi chú |
 |---|---|---|
-| UI-01 | Hiển thị trạng thái 2 hướng đèn | Bắc-Nam và Đông-Tây |
+| UI-01 | Hiển thị trạng thái 4 cụm đèn | NORTH, SOUTH, EAST, WEST |
 | UI-02 | Có nút AUTO | Gửi lệnh chuyển AUTO |
 | UI-03 | Có nút NIGHT | Gửi lệnh vàng nhấp nháy |
 | UI-04 | Có nút PRIORITY NS/EW | Ưu tiên một hướng |
 | UI-05 | Có nút EMERGENCY | Tất cả đỏ |
-| UI-06 | Hiển thị countdown và mode hiện tại | Đồng bộ với demo hoặc dữ liệu mock |
-| UI-07 | Hiển thị lịch sử lệnh gần nhất | Lấy từ database/mock data |
-| UI-08 | Cấu hình thời gian pha đèn | Xanh/vàng ở mức mock hoặc API |
+| UI-06 | Hiển thị countdown và mode hiện tại | Lấy từ backend; có thể lệch device state vì backend giữ clock riêng |
+| UI-07 | Hiển thị lịch sử lệnh gần nhất | Lấy từ SQLite qua API |
+| UI-08 | Cấu hình thời gian pha đèn | Qua API phase plan của backend |
 | UI-09 | Phân biệt trạng thái demo và trạng thái triển khai thật | Tránh nói app điều khiển trực tiếp Wokwi |
 
 ## Phạm vi mobile app đã chốt
 
 | Phần | Quyết định |
 |---|---|
-| Loại app | Mobile web/PWA mock |
+| Loại app | PWA thật + Flutter app source |
 | Mục tiêu demo | Chứng minh luồng vận hành và điều khiển từ app |
 | Kết nối Wokwi | Không kết nối trực tiếp trong MVP |
 | Kết nối thực tế | App -> Backend API/MQTT -> ESP32 -> Đèn |
-| Lưu lịch sử | Local mock hiện tại, database SQLite ở hướng mở rộng |
+| Lưu lịch sử | Backend SQLite thật |
 
 ## API đề xuất nếu làm backend
 
 | Method | Endpoint | Mục đích |
 |---|---|---|
-| `GET` | `/api/status` | Lấy trạng thái đèn hiện tại |
-| `POST` | `/api/commands` | Gửi lệnh đổi chế độ |
-| `GET` | `/api/commands` | Xem lịch sử lệnh |
-| `GET` | `/api/phase-configs` | Xem cấu hình pha đèn |
-| `PUT` | `/api/phase-configs/:id` | Cập nhật thời gian pha |
+| `GET` | `/api/intersections/1/status` | Lấy trạng thái đèn hiện tại |
+| `POST` | `/api/intersections/1/commands` | Gửi lệnh đổi chế độ |
+| `GET` | `/api/intersections/1/commands` | Xem lịch sử lệnh |
+| `GET` | `/api/intersections/1/phase-plans` | Xem phase plan |
+| `PUT` | `/api/phase-plans/:id` | Cập nhật thời gian pha |
 
 Ví dụ command từ mobile app:
 
@@ -203,7 +205,7 @@ Một bản được xem là đạt để nộp khi:
 - Có sơ đồ khối và pin map.
 - Có thiết kế CSDL ít nhất 4 bảng: mode, config, command, log.
 - Có phần giải thích OOP trong code.
-- Có dashboard/mobile mock hoặc ít nhất wireframe rõ ràng.
+- Có dashboard/mobile implementation hoặc ít nhất one-click demo rõ ràng.
 - Có mô tả hướng mobile app gửi lệnh đến backend/API/MQTT.
 - Có report PDF, slide và video/GIF demo.
 - GitHub repo cập nhật đầy đủ file cuối.

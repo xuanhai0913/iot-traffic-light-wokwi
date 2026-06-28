@@ -1,27 +1,29 @@
 # 01. Kế Hoạch Dự Án
 
+> File này bắt đầu từ kế hoạch MVP ban đầu, nhưng đã được cập nhật lại để phản ánh mức triển khai hiện tại của repository.
+
 ## Tên đề tài
 
 Hệ thống mô phỏng điều khiển đèn giao thông thông minh tại một giao lộ.
 
 ## Bối cảnh
 
-Nhóm không có phần cứng thật, vì vậy dự án ưu tiên mô phỏng đầy đủ trên Wokwi. Báo cáo và slide sẽ tập trung vào sơ đồ khối, thuật toán điều khiển, mạch mô phỏng, code và kết quả chạy mô phỏng.
+Nhóm không có phần cứng thật, vì vậy dự án ưu tiên mô phỏng đầy đủ trên Wokwi. Ở trạng thái hiện tại, repo không chỉ có mô phỏng Wokwi mà còn có backend C# ASP.NET Core, SQLite, MQTT bridge, Flutter app và PWA để thể hiện đầy đủ lớp vận hành IoT.
 
-Một điểm quan trọng khi làm bài lớn là nên thể hiện được nhiều kiến thức đã học trong môn và các học phần liên quan. Vì vậy ngoài mô phỏng Wokwi, nhóm cần trình bày thêm thiết kế CSDL, database lưu lịch sử điều khiển, ứng dụng OOP trong code, dashboard/mobile app điều khiển và hướng kết nối IoT.
+Một điểm quan trọng khi làm bài lớn là nên thể hiện được nhiều kiến thức đã học trong môn và các học phần liên quan. Vì vậy ngoài mô phỏng Wokwi, bản hiện tại còn triển khai thật phần thiết kế CSDL, database lưu lịch sử điều khiển, OOP trong firmware, backend/API, Flutter/PWA và luồng MQTT end-to-end.
 
 ## Phạm vi MVP
 
 MVP là bản tối thiểu phải hoàn thành để nộp được:
 
-- Mô phỏng một giao lộ gồm 2 hướng: Bắc-Nam và Đông-Tây.
-- Mỗi hướng có 3 đèn: đỏ, vàng, xanh.
+- Mô phỏng một giao lộ gồm 2 trục điều khiển Bắc-Nam và Đông-Tây, hiển thị thành 4 cụm NORTH/SOUTH/EAST/WEST.
+- Mỗi cụm có 3 đèn: đỏ, vàng, xanh.
 - Có đếm ngược thời gian pha đèn bằng LCD 16x2 hoặc 7-segment.
 - Chế độ tự động:
-  - Hướng Bắc-Nam xanh 30 giây.
-  - Hướng Bắc-Nam vàng 5 giây.
-  - Hướng Đông-Tây xanh 30 giây.
-  - Hướng Đông-Tây vàng 5 giây.
+  - Mặc định Bắc-Nam xanh 8 giây.
+  - Bắc-Nam vàng 3 giây.
+  - Đông-Tây xanh 8 giây.
+  - Đông-Tây vàng 3 giây.
 - Chế độ ban đêm: đèn vàng nhấp nháy.
 - Chế độ ưu tiên: ưu tiên Bắc-Nam hoặc Đông-Tây.
 - Chế độ khẩn cấp: tất cả hướng đỏ.
@@ -34,34 +36,33 @@ MVP là bản tối thiểu phải hoàn thành để nộp được:
 - Công cụ mô phỏng: Wokwi.
 - Hiển thị: LCD 16x2 I2C.
 - Điều khiển mode: 4 nút nhấn dùng `INPUT_PULLUP`.
-- Database/ERD: dùng để trình bày phần dashboard/app và lưu lịch sử điều khiển, không bắt buộc Wokwi phải kết nối database thật.
-- App/mobile: làm dashboard web/mobile mock để trình bày luồng điều khiển, không làm app native trong MVP.
+- Database/ERD: đã triển khai bằng SQLite để lưu lịch sử lệnh, phase plan, approaches, signal heads, device status và log.
+- App/mobile: đã có mobile web/PWA và Flutter app source gọi backend C#; luồng điều khiển dùng HTTP + MQTT.
+- Backend/API: đã có ASP.NET Core 8 Minimal API và MQTT bridge.
 
 ## Phạm vi mở rộng
 
 Chỉ làm nếu MVP đã ổn:
 
-- Dashboard web/mobile mock để thể hiện điều khiển từ app.
-- Thiết kế CSDL để lưu cấu hình pha đèn, lịch sử chuyển chế độ và log sự kiện.
-- Backend/API đơn giản để dashboard gửi lệnh điều khiển và đọc trạng thái.
-- Áp dụng OOP trong code: lớp điều khiển giao lộ, lớp đèn, lớp pha đèn, lớp quản lý chế độ.
-- ESP32 kết nối WiFi/MQTT để mô phỏng điều khiển IoT.
-- Hiển thị trạng thái lên màn hình OLED/LCD đẹp hơn.
-- Thêm cảm biến giả lập xe chờ bằng nút nhấn hoặc ultrasonic sensor.
+- Đồng bộ phase duration backend -> firmware bằng command cấu hình hoàn chỉnh và xác nhận áp dụng.
+- Thêm all-red clearance và safety interlock có thời lượng.
+- Thêm auth, giới hạn CORS và bảo mật MQTT production-grade.
+- Thêm cảm biến giả lập xe chờ hoặc AI/camera nếu còn thời gian.
 
 ## Không làm trong bản chính
 
 - Không làm xe thật, cảm biến thật, module thật.
-- Không làm app mobile native phức tạp.
+- Không làm production deployment hoặc safety model ngoài thực tế.
 - Không làm nhiều giao lộ.
 - Không làm thuật toán tối ưu giao thông nâng cao nếu chưa xong MVP.
 
 ## Linh kiện mô phỏng dự kiến
 
-- ESP32 DevKit hoặc Arduino Uno.
-- 6 LED cho 2 cụm đèn giao thông.
-- 6 điện trở 220Ω.
-- LCD 16x2 I2C hoặc OLED để hiển thị trạng thái và countdown.
+- ESP32 DevKit.
+- 12 LED cho 4 cụm đèn xe NORTH/SOUTH/EAST/WEST.
+- 4 LED cho đèn người đi bộ.
+- 16 điện trở 220Ω.
+- LCD 16x2 I2C để hiển thị trạng thái và countdown.
 - 3-4 nút nhấn:
   - AUTO
   - NIGHT

@@ -2,7 +2,7 @@
 
 ## Vấn đề cần tránh
 
-Đề bài ghi có thể điều khiển bằng app mobile hoặc WinForm. Nếu nhóm ôm cả app thật, WinForm thật, IoT thật và mô phỏng thật thì scope sẽ rộng, dễ không kịp. Vì nhóm không có phần cứng, hướng tốt nhất là làm demo Wokwi thật rõ, còn app/mobile/WinForm trình bày ở mức giao diện điều khiển và hướng mở rộng.
+Đề bài ghi có thể điều khiển bằng app mobile hoặc WinForm. Kế hoạch ban đầu từng ưu tiên làm Wokwi trước để tránh loãng scope. Ở trạng thái repository hiện tại, dự án đã vượt mức đó: ngoài Wokwi còn có backend C#, SQLite, MQTT bridge, Flutter app và PWA.
 
 ## Tên đề tài nên dùng
 
@@ -30,13 +30,12 @@ Tên này rõ 3 ý:
 
 ### Nên làm nếu kịp
 
-- Dashboard web/mobile mock để thể hiện app điều khiển.
-- Sơ đồ giao tiếp app -> ESP32 -> đèn.
-- Mô phỏng lệnh điều khiển qua Serial command.
+- Dashboard/PWA và Flutter app để thể hiện app điều khiển.
+- Sơ đồ giao tiếp app -> API -> MQTT -> ESP32 -> đèn.
+- Điều khiển qua button, Serial command và MQTT command.
 
 ### Không nên làm
 
-- App mobile native thật.
 - WinForms thật nếu nhóm không có máy Windows.
 - Mô hình xe/cảm biến phức tạp.
 - Nhiều giao lộ hoặc tối ưu AI.
@@ -56,9 +55,8 @@ Tên này rõ 3 ý:
 - Có bảng trạng thái đèn theo từng mode.
 - Có ảnh Wokwi đang chạy từng mode.
 - Có video/GIF demo không quá dài, khoảng 30-60 giây.
-- Có dashboard mock để đáp ứng ý "điều khiển bằng app mobile/WinForm".
+- Có dashboard/PWA hoặc Flutter app để đáp ứng ý "điều khiển bằng app mobile/WinForm".
 
 ## Câu giải thích khi thầy hỏi vì sao không dùng phần cứng
 
 Do nhóm không có đủ thiết bị phần cứng, nhóm triển khai mô phỏng bằng Wokwi để kiểm thử mạch và thuật toán. Wokwi cho phép mô phỏng Arduino/ESP32, LED, nút nhấn, LCD và logic điều khiển, nên phù hợp để chứng minh nguyên lý hoạt động. Khi triển khai thực tế, chỉ cần thay các LED mô phỏng bằng module đèn thật và kết nối app qua WiFi/MQTT hoặc Serial.
-
