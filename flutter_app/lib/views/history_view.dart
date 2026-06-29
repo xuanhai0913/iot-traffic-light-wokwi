@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../app/colors.dart';
 import '../data/dashboard_snapshot.dart';
 import '../widgets/atoms.dart';
+import 'device_logs_view.dart';
 
 class HistoryView extends StatelessWidget {
   const HistoryView({required this.commands, required this.logs, super.key});
@@ -27,17 +27,7 @@ class HistoryView extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 12),
-        SectionCard(
-          title: 'Device logs',
-          child: logs.isEmpty
-              ? const EmptyState(text: 'Chưa có log')
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: logs.length,
-                  itemBuilder: (_, i) => LogTile(log: logs[i]),
-                ),
-        ),
+        DeviceLogsView(logs: logs),
       ],
     );
   }

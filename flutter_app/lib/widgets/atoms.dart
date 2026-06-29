@@ -437,13 +437,91 @@ class LogTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.receipt_long),
-      title: Text(log.phaseCode),
-      subtitle: Text('${log.modeCode} - remaining ${log.remainingSeconds}s'),
-      trailing: Text(log.createdAt),
+    final level = logLevel(log);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppColors.space3,
+        vertical: AppColors.space2,
+      ),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.glassBorder),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              log.createdAt,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 10,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: AppColors.space2),
+          _LevelPill(level: level),
+          const SizedBox(width: AppColors.space2),
+          Expanded(
+            child: Text(
+              '${log.modeCode} · ${log.phaseCode}'
+              '${log.remainingSeconds >= 0 ? ' · ${log.remainingSeconds}s' : ''}',
+              style: const TextStyle(
+                color: AppColors.foreground2,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+String logLevel(TrafficLog log) {
+  final mode = log.modeCode.toUpperCase();
+  if (mode == 'EMERGENCY' || log.remainingSeconds < 0) return 'err';
+  if (mode == 'NIGHT' || mode == 'MAINTENANCE') return 'warn';
+  return 'info';
+}
+
+
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({required this.level});
+
+  final String level;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, bg, text) = switch (level) {
+      'err' => (AppColors.danger, const Color(0x33FF3B30), 'ERR'),
+      'warn' => (AppColors.warn, const Color(0x33FFCC00), 'WARN'),
+      'ok' => (AppColors.success, const Color(0x3334C759), 'OK'),
+      _ => (AppColors.accent, const Color(0x330071E3), 'INFO'),
+    };
+    return Container(
+      width: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
     );
   }
 }
