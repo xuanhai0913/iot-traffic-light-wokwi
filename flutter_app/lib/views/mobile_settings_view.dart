@@ -39,29 +39,29 @@ class MobileSettingsView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SectionLabel('Trạng thái thiết bị'),
-        Row(
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppColors.space2,
+          crossAxisSpacing: AppColors.space2,
+          childAspectRatio: 1.4,
           children: [
-            StatusStat(
-              label: online ? 'Kết nối' : 'Offline',
+            _StatCard(
               value: online ? '●' : '!',
+              label: online ? 'Connected' : 'Offline',
               color: online ? AppColors.success : AppColors.warn,
             ),
-            const SizedBox(width: 6),
-            const StatusStat(
-              label: 'RSSI',
-              value: '—',
-              color: AppColors.foreground2,
+            const _StatCard(value: '—', label: 'RSSI (dBm)'),
+            const _StatCard(value: '—', label: 'Nhiệt độ'),
+            _StatCard(
+              value: online ? '● live' : '—',
+              label: 'Uptime',
+              color: online ? AppColors.success : AppColors.foreground2,
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        const Row(
-          children: [
-            StatusStat(label: 'Nhiệt độ', value: '—'),
-            SizedBox(width: 6),
-            StatusStat(label: 'Uptime', value: '—'),
-          ],
-        ),
+        const SizedBox(height: AppColors.space3),
         const SectionLabel('Cài đặt thiết bị'),
         GlassPanel(
           child: Column(
@@ -367,6 +367,55 @@ class SettingsView extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.value,
+    required this.label,
+    this.color = AppColors.foreground,
+  });
+
+  final String value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.glass,
+        borderRadius: BorderRadius.circular(AppColors.radiusMd),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      padding: const EdgeInsets.all(AppColors.space4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: AppColors.space2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.foreground2,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
