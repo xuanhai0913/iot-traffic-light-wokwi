@@ -55,6 +55,12 @@ class SignalLamp extends StatelessWidget {
       'GREEN' => AppColors.success,
       _ => AppColors.muted,
     };
+    final glow = switch (color) {
+      'RED' => AppColors.redGlow,
+      'YELLOW' => AppColors.yellowGlow,
+      'GREEN' => AppColors.greenGlow,
+      _ => null,
+    };
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       width: size,
@@ -66,12 +72,12 @@ class SignalLamp extends StatelessWidget {
           color: active ? base : AppColors.surface2,
           width: 2,
         ),
-        boxShadow: active
+        boxShadow: active && glow != null
             ? [
                 BoxShadow(
-                  color: base.withValues(alpha: 0.42),
-                  blurRadius: size * 0.34,
-                  spreadRadius: 2,
+                  color: glow,
+                  blurRadius: 16,
+                  spreadRadius: 0,
                 ),
               ]
             : const [],
