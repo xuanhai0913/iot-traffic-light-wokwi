@@ -19,10 +19,11 @@ class HistoryView extends StatelessWidget {
           title: 'Command history',
           child: commands.isEmpty
               ? const EmptyState(text: 'Chưa có command')
-              : Column(
-                  children: commands
-                      .map((entry) => CommandTile(entry: entry))
-                      .toList(),
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: commands.length,
+                  itemBuilder: (_, i) => CommandTile(entry: commands[i]),
                 ),
         ),
         const SizedBox(height: 12),
@@ -30,12 +31,14 @@ class HistoryView extends StatelessWidget {
           title: 'Device logs',
           child: logs.isEmpty
               ? const EmptyState(text: 'Chưa có log')
-              : Column(
-                  children: logs.map((log) => LogTile(log: log)).toList(),
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: logs.length,
+                  itemBuilder: (_, i) => LogTile(log: logs[i]),
                 ),
         ),
       ],
     );
   }
 }
-
