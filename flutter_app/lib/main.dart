@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,20 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
 
   @override
   Widget build(BuildContext context) {
+    final home = TrafficHomePage(messengerKey: _messengerKey);
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return CupertinoApp(
+        debugShowCheckedModeBanner: false,
+        title: 'IoT Traffic Light',
+        theme: const CupertinoThemeData(
+          brightness: Brightness.dark,
+          primaryColor: AppColors.accent,
+          scaffoldBackgroundColor: AppColors.background,
+          barBackgroundColor: AppColors.surface,
+        ),
+        home: home,
+      );
+    }
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messengerKey,
@@ -98,7 +113,7 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
           displayColor: AppColors.foreground,
         ),
       ),
-      home: TrafficHomePage(messengerKey: _messengerKey),
+      home: home,
     );
   }
 }
@@ -131,6 +146,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   bool online = false;
   bool skipDangerConfirm = false;
   String selectedPage = 'control';
+  DateTime? _lastSnapshotAt;
 
   bool isRunning(String key) => _runningActions.contains(key);
   bool get anyLoading => _runningActions.isNotEmpty;
@@ -213,6 +229,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         dashboard =
             DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
         online = true;
+        _lastSnapshotAt = DateTime.now();
       });
     } catch (error) {
       if (!mounted) return;
@@ -313,11 +330,25 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     if (messenger == null) {
       return null;
     }
+    final dialogContext = messenger.context;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return showCupertinoDialog<bool>(
+        context: dialogContext,
+        barrierDismissible: false,
+        builder: (ctx) => DangerousCommandDialog(
+          modeCode: modeCode,
+          danger: danger,
+          isIOS: true,
+        ),
+      );
+    }
     return showDialog<bool>(
-      context: messenger.context,
+      context: dialogContext,
       barrierDismissible: false,
-      builder: (dialogContext) =>
-          DangerousCommandDialog(modeCode: modeCode, danger: danger),
+      builder: (_) => DangerousCommandDialog(
+        modeCode: modeCode,
+        danger: danger,
+      ),
     );
   }
 
@@ -334,21 +365,36 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     final createdAt = compactTime(result['createdAt'] ?? result['created_at']);
     final deviceStatus = result['deviceStatus']?.toString() ?? 'queued';
     final String commandIdDisplay = commandId.toString();
+    final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
 
-    await showDialog<void>(
-      context: messenger.context,
-      builder: (dialogContext) {
-        return CommandResultDialog(
-          command: command,
-          commandId: commandIdDisplay,
-          modeCode: modeCode,
-          source: source,
-          createdBy: createdBy,
-          createdAt: createdAt,
-          deviceStatus: deviceStatus,
-        );
-      },
-    );
+    Future<void> Function() showIt = isIOS
+        ? () => showCupertinoDialog<void>(
+              context: messenger.context,
+              builder: (ctx) => CommandResultDialog(
+                command: command,
+                commandId: commandIdDisplay,
+                modeCode: modeCode,
+                source: source,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                deviceStatus: deviceStatus,
+                isIOS: true,
+              ),
+            )
+        : () => showDialog<void>(
+              context: messenger.context,
+              builder: (ctx) => CommandResultDialog(
+                command: command,
+                commandId: commandIdDisplay,
+                modeCode: modeCode,
+                source: source,
+                createdBy: createdBy,
+                createdAt: createdAt,
+                deviceStatus: deviceStatus,
+              ),
+            );
+
+    await showIt();
   }
 
   Future<void> updatePhasePlan(
@@ -513,7 +559,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           isRunning: isRunning,
           onCommand: sendCommand,
         ),
-      'live' => LiveStatusView(snapshot: dashboard),
+      'live' => LiveStatusView(snapshot: dashboard, lastSnapshotAt: _lastSnapshotAt),
       'schedule' => ManageView(
           phasePlans: dashboard.phasePlans,
           approaches: dashboard.approaches,
@@ -529,6 +575,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           apiBase: api.baseUrl,
           isRunning: isRunning,
           deviceStatuses: dashboard.deviceStatuses,
+          phasePlans: dashboard.phasePlans,
           skipDangerConfirm: skipDangerConfirm,
           onApply: applyApiBase,
           onRefresh: refreshDashboard,
@@ -542,6 +589,86 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         ),
     };
 
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS uses CupertinoTabScaffold; the body is the same content tree
+      // (AppHeader + DeviceBadge + AnimatedSwitcher), wrapped per-tab in
+      // CupertinoTabView so each tab keeps its own Navigator stack.
+      return CupertinoTabScaffold(
+        tabBar: CupertinoTabBar(
+          backgroundColor: AppColors.surface,
+          activeColor: AppColors.accent,
+          inactiveColor: AppColors.muted,
+          currentIndex: switch (selectedPage) {
+            'live' => 1,
+            'schedule' => 2,
+            'settings' => 3,
+            _ => 0,
+          },
+          onTap: (index) {
+            setState(() {
+              selectedPage =
+                  ['control', 'live', 'schedule', 'settings'][index];
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.radio_button_checked),
+              label: 'Điều khiển',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.verified_outlined),
+              label: 'Trực tiếp',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.schedule_outlined),
+              label: 'Lịch',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              label: 'Cài đặt',
+            ),
+          ],
+        ),
+        tabBuilder: (context, _) {
+          return CupertinoTabView(
+            builder: (tabContext) {
+              return CupertinoPageScaffold(
+                backgroundColor: AppColors.background,
+                child: SafeArea(
+                  child: RefreshIndicator(
+                    onRefresh: refreshDashboard,
+                    color: AppColors.accent,
+                    backgroundColor: AppColors.surface,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 88),
+                      children: [
+                        AppHeader(
+                          title: _pageTitle(selectedPage),
+                          online: online,
+                          loading: anyLoading,
+                          onRefresh: () => refreshDashboard(force: true),
+                        ),
+                        const SizedBox(height: 8),
+                        DeviceBadge(
+                            online: online, apiBase: api.baseUrl),
+                        const SizedBox(height: 12),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          child: KeyedSubtree(
+                            key: ValueKey(selectedPage),
+                            child: content,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
     return Scaffold(
       drawer: AppDrawer(
         online: online,
@@ -1104,9 +1231,14 @@ class MiniCommandButton extends StatelessWidget {
 }
 
 class LiveStatusView extends StatelessWidget {
-  const LiveStatusView({required this.snapshot, super.key});
+  const LiveStatusView({
+    required this.snapshot,
+    required this.lastSnapshotAt,
+    super.key,
+  });
 
   final DashboardSnapshot snapshot;
+  final DateTime? lastSnapshotAt;
 
   @override
   Widget build(BuildContext context) {
@@ -1136,6 +1268,7 @@ class LiveStatusView extends StatelessWidget {
               .map((direction) => DirectionSignalCard(
                     direction: direction,
                     signal: _signalFor(status, direction),
+                    latency: _latencyLabel(),
                   ))
               .toList(),
         ),
@@ -1153,7 +1286,7 @@ class LiveStatusView extends StatelessWidget {
               const SizedBox(width: 8),
               const StatusStat(
                 label: 'Nhiệt',
-                value: '32°C',
+                value: '—',
                 color: AppColors.foreground2,
               ),
             ],
@@ -1161,6 +1294,13 @@ class LiveStatusView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _latencyLabel() {
+    final at = lastSnapshotAt;
+    if (at == null) return '—';
+    final seconds = DateTime.now().difference(at).inSeconds;
+    return '● ${seconds}s ago';
   }
 
   static SignalStatus _signalFor(TrafficStatus status, String direction) {
@@ -1201,10 +1341,16 @@ class _LiveBadge extends StatelessWidget {
 }
 
 class DirectionSignalCard extends StatelessWidget {
-  const DirectionSignalCard({required this.direction, required this.signal, super.key});
+  const DirectionSignalCard({
+    required this.direction,
+    required this.signal,
+    required this.latency,
+    super.key,
+  });
 
   final String direction;
   final SignalStatus signal;
+  final String latency;
 
   @override
   Widget build(BuildContext context) {
@@ -1233,8 +1379,10 @@ class DirectionSignalCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          const Text('● 75ms',
-              style: TextStyle(color: AppColors.success, fontSize: 12)),
+          Text(
+            latency,
+            style: const TextStyle(color: AppColors.success, fontSize: 12),
+          ),
         ],
       ),
     );
@@ -1360,7 +1508,7 @@ class ControlView extends StatelessWidget {
                   const SizedBox(width: 8),
                   const StatusStat(
                     label: 'Nhiệt độ',
-                    value: '32°C',
+                    value: '—',
                     color: AppColors.foreground2,
                   ),
                 ],
@@ -2042,6 +2190,7 @@ class MobileSettingsView extends StatelessWidget {
     required this.apiBase,
     required this.isRunning,
     required this.deviceStatuses,
+    required this.phasePlans,
     required this.skipDangerConfirm,
     required this.onApply,
     required this.onRefresh,
@@ -2054,6 +2203,7 @@ class MobileSettingsView extends StatelessWidget {
   final String apiBase;
   final bool Function(String key) isRunning;
   final List<Map<String, dynamic>> deviceStatuses;
+  final List<PhasePlan> phasePlans;
   final bool skipDangerConfirm;
   final Future<void> Function() onApply;
   final Future<void> Function() onRefresh;
@@ -2078,17 +2228,17 @@ class MobileSettingsView extends StatelessWidget {
             const SizedBox(width: 6),
             const StatusStat(
               label: 'RSSI',
-              value: '-68',
-              color: AppColors.accent,
+              value: '—',
+              color: AppColors.foreground2,
             ),
           ],
         ),
         const SizedBox(height: 6),
         const Row(
           children: [
-            StatusStat(label: 'Nhiệt độ', value: '32°C'),
+            StatusStat(label: 'Nhiệt độ', value: '—'),
             SizedBox(width: 6),
-            StatusStat(label: 'Uptime', value: '98%'),
+            StatusStat(label: 'Uptime', value: '—'),
           ],
         ),
         const SectionLabel('Cài đặt thiết bị'),
@@ -2165,12 +2315,14 @@ class MobileSettingsView extends StatelessWidget {
               ? 'TrafficLight-01'
               : text(deviceStatuses.first['device_id'], 'TrafficLight-01'),
         ),
-        const SettingRow(
+        SettingRow(
           icon: Icons.schedule,
           iconColor: AppColors.warn,
           label: 'Cấu hình chu kỳ',
           desc: 'Đỏ, Vàng, Xanh',
-          value: '30-5-25s',
+          value: phasePlans.isEmpty
+              ? '—'
+              : '${phasePlans.first.greenSeconds}/${phasePlans.first.yellowSeconds}s',
         ),
         SettingRow(
           icon: Icons.warning_amber_rounded,
@@ -2189,13 +2341,13 @@ class MobileSettingsView extends StatelessWidget {
           icon: Icons.info_outline,
           iconColor: AppColors.foreground2,
           label: 'Phiên bản firmware',
-          value: 'v2.4.1',
+          value: '—',
         ),
         const SettingRow(
           icon: Icons.shield_outlined,
           iconColor: AppColors.foreground2,
           label: 'Bảo mật',
-          desc: 'TLS 1.3',
+          desc: '—',
         ),
       ],
     );
@@ -2791,6 +2943,7 @@ class CommandResultDialog extends StatelessWidget {
     required this.createdBy,
     required this.createdAt,
     required this.deviceStatus,
+    this.isIOS = false,
     super.key,
   });
 
@@ -2801,9 +2954,44 @@ class CommandResultDialog extends StatelessWidget {
   final String createdBy;
   final String createdAt;
   final String deviceStatus;
+  final bool isIOS;
 
   @override
   Widget build(BuildContext context) {
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ResultRow(label: 'Command ID', value: commandId),
+        _ResultRow(label: 'Mode', value: modeCode),
+        _ResultRow(label: 'Source', value: source),
+        _ResultRow(label: 'Created by', value: createdBy),
+        _ResultRow(label: 'Created at', value: createdAt),
+        _ResultRow(label: 'Device status', value: deviceStatus),
+        const SizedBox(height: 8),
+        const Text(
+          'The MQTT bridge will publish this payload to the '
+          'Wokwi device on the next tick.',
+          style: TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+    if (isIOS) {
+      return CupertinoAlertDialog(
+        title: Text('Command accepted: $command'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: body,
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    }
     return AlertDialog(
       title: Row(
         children: [
@@ -2815,24 +3003,7 @@ class CommandResultDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ResultRow(label: 'Command ID', value: commandId),
-          _ResultRow(label: 'Mode', value: modeCode),
-          _ResultRow(label: 'Source', value: source),
-          _ResultRow(label: 'Created by', value: createdBy),
-          _ResultRow(label: 'Created at', value: createdAt),
-          _ResultRow(label: 'Device status', value: deviceStatus),
-          const SizedBox(height: 8),
-          const Text(
-            'The MQTT bridge will publish this payload to the '
-            'Wokwi device on the next tick.',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
+      content: body,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -2870,11 +3041,13 @@ class DangerousCommandDialog extends StatelessWidget {
   const DangerousCommandDialog({
     required this.modeCode,
     required this.danger,
+    this.isIOS = false,
     super.key,
   });
 
   final String modeCode;
   final DangerLevel danger;
+  final bool isIOS;
 
   String get _impact {
     return switch (modeCode) {
@@ -2891,30 +3064,51 @@ class DangerousCommandDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Risk level: ${danger.label}',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: danger.color,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(_impact),
+        const SizedBox(height: 12),
+        const Text(
+          'The Wokwi device will receive the new mode on its next '
+          'MQTT tick (~1 second).',
+          style: TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+    if (isIOS) {
+      return CupertinoAlertDialog(
+        title: Text('Confirm SET_$modeCode'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: content,
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Send anyway'),
+          ),
+        ],
+      );
+    }
     return AlertDialog(
       icon: Icon(danger.icon, color: danger.color, size: 32),
       title: Text('Confirm SET_$modeCode'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Risk level: ${danger.label}',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: danger.color,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(_impact),
-          const SizedBox(height: 12),
-          const Text(
-            'The Wokwi device will receive the new mode on its next '
-            'MQTT tick (~1 second).',
-            style: TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
+      content: content,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
