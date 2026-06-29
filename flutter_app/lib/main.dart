@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'app/colors.dart';
 import 'app/home_page.dart';
 import 'data/dashboard_snapshot.dart';
+import 'views/onboarding_view.dart';
 
 void main() {
   runApp(const TrafficOperatorApp());
@@ -31,6 +32,7 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
   @override
   Widget build(BuildContext context) {
     final home = TrafficHomePage(messengerKey: _messengerKey);
+    final gate = OnboardingGate(home: home);
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       return CupertinoApp(
         debugShowCheckedModeBanner: false,
@@ -41,7 +43,7 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
           scaffoldBackgroundColor: AppColors.background,
           barBackgroundColor: AppColors.surface,
         ),
-        home: home,
+        home: gate,
       );
     }
     return MaterialApp(
@@ -99,7 +101,7 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
           displayColor: AppColors.foreground,
         ),
       ),
-      home: home,
+      home: gate,
     );
   }
 }
