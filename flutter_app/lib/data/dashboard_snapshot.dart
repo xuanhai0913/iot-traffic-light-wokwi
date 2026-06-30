@@ -1,14 +1,64 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 String modeLabel(String modeCode) {
   return switch (modeCode) {
-    'PRIORITY_NS' => 'PRIORITY NS',
-    'PRIORITY_EW' => 'PRIORITY EW',
+    'AUTO' => 'Tự động',
+    'NIGHT' => 'Ban đêm',
+    'PRIORITY_NS' => 'Ưu tiên Bắc-Nam',
+    'PRIORITY_EW' => 'Ưu tiên Đông-Tây',
+    'EMERGENCY' => 'Khẩn cấp',
+    '' => '--',
     _ => modeCode,
   };
+}
+
+String phaseLabel(String phaseCode) {
+  return switch (phaseCode) {
+    'NS_GREEN' => 'Bắc-Nam xanh',
+    'NS_YELLOW' => 'Bắc-Nam vàng',
+    'EW_GREEN' => 'Đông-Tây xanh',
+    'EW_YELLOW' => 'Đông-Tây vàng',
+    'NS_PRIORITY' => 'Ưu tiên Bắc-Nam',
+    'EW_PRIORITY' => 'Ưu tiên Đông-Tây',
+    'YELLOW_BLINK' => 'Vàng nháy',
+    'ALL_RED' => 'Tất cả đỏ',
+    'NO_ACTIVE_PLAN' => 'Chưa có chu kỳ',
+    '' => '--',
+    _ => phaseCode,
+  };
+}
+
+String commandLabel(String command, {String modeCode = ''}) {
+  final mode = modeCode.isNotEmpty
+      ? modeCode
+      : command.toUpperCase().replaceFirst('SET_', '');
+  return switch (mode) {
+    'AUTO' => 'Bật chế độ tự động',
+    'NIGHT' => 'Bật chế độ ban đêm',
+    'PRIORITY_NS' => 'Ưu tiên hướng Bắc-Nam',
+    'PRIORITY_EW' => 'Ưu tiên hướng Đông-Tây',
+    'EMERGENCY' => 'Dừng khẩn cấp',
+    _ => command,
+  };
+}
+
+String? normalizeApiBase(String raw) {
+  final trimmed = raw.trim().replaceAll(RegExp(r'/+$'), '');
+  final uri = Uri.tryParse(trimmed);
+  if (trimmed.isEmpty ||
+      uri == null ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment) {
+    return null;
+  }
+  return trimmed;
 }
 
 Map<String, dynamic> asMap(Object? value) {
@@ -57,6 +107,19 @@ String compactTime(Object? value) {
   return raw.replaceFirst('T', ' ').split('.').first;
 }
 
+String humanizeDeviceMessage(String raw) {
+  return switch (raw.trim()) {
+    'Published to MQTT broker' => 'Đã publish lên MQTT broker',
+    'Device acknowledged command' => 'Thiết bị đã xác nhận lệnh',
+    'Command accepted' => 'Backend đã ghi nhận lệnh',
+    'Unsupported command' => 'Lệnh không được hỗ trợ',
+    'Emergency mode only allows SET_AUTO, SET_NIGHT, or SET_EMERGENCY' =>
+      'Khi đang EMERGENCY chỉ cho phép SET_AUTO, SET_NIGHT hoặc SET_EMERGENCY',
+    'device applied' => 'Thiết bị đã áp dụng lệnh',
+    _ => raw,
+  };
+}
+
 class ApiClient {
   ApiClient(this.baseUrl, {this.maxAttempts = 3});
 
@@ -75,7 +138,13 @@ class ApiClient {
 
   Future<Map<String, dynamic>> _send(String method, String path,
       {Map<String, dynamic>? body}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final normalizedBase = normalizeApiBase(baseUrl);
+    if (normalizedBase == null) {
+      throw ApiException(
+        'Địa chỉ API không hợp lệ. Hãy nhập đầy đủ http:// hoặc https://',
+      );
+    }
+    final uri = Uri.parse('$normalizedBase$path');
     final headers = <String, String>{'Accept': 'application/json'};
     if (body != null) {
       headers['Content-Type'] = 'application/json';
@@ -83,7 +152,8 @@ class ApiClient {
     final encodedBody = body == null ? null : jsonEncode(body);
 
     Object? lastError;
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    final attempts = attemptsForMethod(method);
+    for (var attempt = 1; attempt <= attempts; attempt++) {
       try {
         final response = switch (method) {
           'POST' => await http
@@ -114,14 +184,18 @@ class ApiClient {
         // Bad response payload: do not retry, surface immediately.
         throw ApiException('API trả về dữ liệu không hợp lệ');
       }
-      if (attempt < maxAttempts) {
+      if (attempt < attempts) {
         // Exponential backoff: 300ms, 600ms, 1200ms ...
-        final delay = Duration(
-            milliseconds: 300 * (1 << (attempt - 1)));
+        final delay = Duration(milliseconds: 300 * (1 << (attempt - 1)));
         await Future<void>.delayed(delay);
       }
     }
-    throw lastError ?? ApiException('API request failed after $maxAttempts attempts');
+    throw lastError ??
+        ApiException('API request failed after $attempts attempts');
+  }
+
+  int attemptsForMethod(String method) {
+    return method.toUpperCase() == 'GET' ? maxAttempts : 1;
   }
 
   Map<String, dynamic> _decodeOrThrow(http.Response response) {
@@ -224,15 +298,12 @@ class TrafficStatus {
   final List<SignalStatus> signals;
 
   factory TrafficStatus.empty() => TrafficStatus(
-      modeCode: 'AUTO',
-      phaseCode: 'NS_GREEN',
-      remainingSeconds: 8,
-      signals: []);
+      modeCode: '', phaseCode: '', remainingSeconds: -1, signals: []);
 
   factory TrafficStatus.fromJson(Map<String, dynamic> json) {
     return TrafficStatus(
-      modeCode: text(json['modeCode'] ?? json['mode_code'], 'AUTO'),
-      phaseCode: text(json['phaseCode'] ?? json['phase_code'], 'NS_GREEN'),
+      modeCode: text(json['modeCode'] ?? json['mode_code'], ''),
+      phaseCode: text(json['phaseCode'] ?? json['phase_code'], ''),
       remainingSeconds:
           number(json['remainingSeconds'] ?? json['remaining_seconds'], -1),
       signals: asList(json['signals'])
@@ -350,23 +421,70 @@ class PhaseStep {
 
 class CommandEntry {
   CommandEntry({
+    required this.id,
     required this.command,
+    required this.modeCode,
     required this.source,
-    required this.status,
+    required this.createdBy,
+    required this.commandStatus,
+    required this.deviceStatus,
+    required this.deviceMessage,
+    required this.mqttTopic,
     required this.createdAt,
+    required this.publishedAt,
+    required this.acknowledgedAt,
   });
 
+  final int id;
   final String command;
+  final String modeCode;
   final String source;
-  final String status;
+  final String createdBy;
+  final String commandStatus;
+  final String deviceStatus;
+  final String deviceMessage;
+  final String mqttTopic;
   final String createdAt;
+  final String publishedAt;
+  final String acknowledgedAt;
+
+  factory CommandEntry.fallback({
+    required String command,
+    required String modeCode,
+    required String source,
+    required String createdBy,
+  }) {
+    return CommandEntry(
+      id: 0,
+      command: command,
+      modeCode: modeCode,
+      source: source,
+      createdBy: createdBy,
+      commandStatus: 'success',
+      deviceStatus: 'queued',
+      deviceMessage:
+          'Đã ghi nhận lệnh, đang chờ bridge MQTT gửi xuống thiết bị.',
+      mqttTopic: '',
+      createdAt: '',
+      publishedAt: '',
+      acknowledgedAt: '',
+    );
+  }
 
   factory CommandEntry.fromJson(Map<String, dynamic> json) {
     return CommandEntry(
+      id: number(json['id'], 0),
       command: text(json['command'], ''),
+      modeCode: text(json['mode_code'] ?? json['modeCode'], ''),
       source: text(json['source'], ''),
-      status: text(json['device_status'] ?? json['status'], ''),
+      createdBy: text(json['created_by'] ?? json['createdBy'], ''),
+      commandStatus: text(json['status'], ''),
+      deviceStatus: text(json['device_status'] ?? json['status'], ''),
+      deviceMessage: text(json['device_message'] ?? json['deviceMessage'], ''),
+      mqttTopic: text(json['mqtt_topic'] ?? json['mqttTopic'], ''),
       createdAt: compactTime(json['created_at']),
+      publishedAt: compactTime(json['published_at']),
+      acknowledgedAt: compactTime(json['acknowledged_at']),
     );
   }
 }
@@ -394,8 +512,17 @@ class TrafficLog {
   }
 }
 
-const defaultApiBase =
-    kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000';
+const _configuredApiBase = String.fromEnvironment('API_BASE_URL');
+
+String get defaultApiBase {
+  if (_configuredApiBase.isNotEmpty) {
+    return _configuredApiBase;
+  }
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return 'http://127.0.0.1:8000';
+  }
+  return 'http://10.0.2.2:8000';
+}
 
 const String _apiBasePrefsKey = 'iot_traffic_light.api_base_url';
 const String _skipConfirmPrefsKey = 'iot_traffic_light.skip_danger_confirm';
@@ -415,20 +542,16 @@ class SettingsStore {
     if (raw == null) {
       return null;
     }
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) {
-      return null;
-    }
-    return trimmed.replaceAll(RegExp(r'/+$'), '');
+    return normalizeApiBase(raw);
   }
 
   Future<void> writeApiBase(String value) async {
-    final trimmed = value.trim().replaceAll(RegExp(r'/+$'), '');
-    if (trimmed.isEmpty) {
+    final normalized = normalizeApiBase(value);
+    if (normalized == null) {
       await _prefs.remove(_apiBasePrefsKey);
       return;
     }
-    await _prefs.setString(_apiBasePrefsKey, trimmed);
+    await _prefs.setString(_apiBasePrefsKey, normalized);
   }
 
   bool readSkipConfirm() => _prefs.getBool(_skipConfirmPrefsKey) ?? false;
@@ -441,4 +564,3 @@ class SettingsStore {
     }
   }
 }
-

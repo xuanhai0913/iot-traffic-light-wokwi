@@ -540,6 +540,70 @@ public:
   virtual const char *displayLine() const = 0;
 };
 
+class DisplayManager {
+public:
+  void begin() {
+    lcd.init();
+    lcd.backlight();
+    showMessage("TRAFFIC SYSTEM", "Starting...");
+  }
+
+  void showStatus(const char *mode, const char *line2, int remainingSeconds) {
+    if (millis() - lastUpdateMs < 300 && remainingSeconds == lastRemainingSeconds) {
+      return;
+    }
+
+    lastUpdateMs = millis();
+    lastRemainingSeconds = remainingSeconds;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(fit(mode));
+    lcd.setCursor(0, 1);
+
+    if (remainingSeconds >= 0) {
+      String value = String(line2) + " " + String(remainingSeconds) + "s";
+      lcd.print(fit(value));
+      Serial.print(mode);
+      Serial.print(" | ");
+      Serial.print(line2);
+      Serial.print(" | remaining ");
+      Serial.print(remainingSeconds);
+      Serial.println("s");
+      return;
+    }
+
+    lcd.print(fit(line2));
+    Serial.print(mode);
+    Serial.print(" | ");
+    Serial.println(line2);
+  }
+
+private:
+  LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+  unsigned long lastUpdateMs = 0;
+  int lastRemainingSeconds = -99;
+
+  void showMessage(const char *line1, const char *line2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(fit(line1));
+    lcd.setCursor(0, 1);
+    lcd.print(fit(line2));
+  }
+
+  String fit(String value) {
+    if (value.length() > 16) {
+      return value.substring(0, 16);
+    }
+
+    while (value.length() < 16) {
+      value += ' ';
+    }
+    return value;
+  }
+};
+
 class AutoMode : public IModeStrategy {
 public:
   AutoMode(RoadApproach &n, RoadApproach &s, RoadApproach &e, RoadApproach &w,
@@ -889,70 +953,6 @@ private:
   RoadApproach &north, &south, &east, &west;
   DisplayManager &display;
   const char *modeName;
-};
-
-class DisplayManager {
-public:
-  void begin() {
-    lcd.init();
-    lcd.backlight();
-    showMessage("TRAFFIC SYSTEM", "Starting...");
-  }
-
-  void showStatus(const char *mode, const char *line2, int remainingSeconds) {
-    if (millis() - lastUpdateMs < 300 && remainingSeconds == lastRemainingSeconds) {
-      return;
-    }
-
-    lastUpdateMs = millis();
-    lastRemainingSeconds = remainingSeconds;
-
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(fit(mode));
-    lcd.setCursor(0, 1);
-
-    if (remainingSeconds >= 0) {
-      String value = String(line2) + " " + String(remainingSeconds) + "s";
-      lcd.print(fit(value));
-      Serial.print(mode);
-      Serial.print(" | ");
-      Serial.print(line2);
-      Serial.print(" | remaining ");
-      Serial.print(remainingSeconds);
-      Serial.println("s");
-      return;
-    }
-
-    lcd.print(fit(line2));
-    Serial.print(mode);
-    Serial.print(" | ");
-    Serial.println(line2);
-  }
-
-private:
-  LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
-  unsigned long lastUpdateMs = 0;
-  int lastRemainingSeconds = -99;
-
-  void showMessage(const char *line1, const char *line2) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(fit(line1));
-    lcd.setCursor(0, 1);
-    lcd.print(fit(line2));
-  }
-
-  String fit(String value) {
-    if (value.length() > 16) {
-      return value.substring(0, 16);
-    }
-
-    while (value.length() < 16) {
-      value += ' ';
-    }
-    return value;
-  }
 };
 
 class IntersectionController {

@@ -14,6 +14,7 @@ class MiniCommandButton extends StatelessWidget {
     required this.active,
     required this.loading,
     required this.onPressed,
+    this.enabled = true,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class MiniCommandButton extends StatelessWidget {
   final Color color;
   final bool active;
   final bool loading;
+  final bool enabled;
   final Future<void> Function(String modeCode) onPressed;
 
   @override
@@ -31,7 +33,8 @@ class MiniCommandButton extends StatelessWidget {
       child: SizedBox(
         height: 44,
         child: FilledButton.icon(
-          onPressed: loading ? null : () => onPressed(modeCode),
+          onPressed:
+              loading || active || !enabled ? null : () => onPressed(modeCode),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             backgroundColor:
@@ -63,11 +66,11 @@ class MiniCommandButton extends StatelessWidget {
   }
 }
 
-
 class ControlView extends StatelessWidget {
   const ControlView({
     required this.snapshot,
     required this.currentMode,
+    required this.online,
     required this.isRunning,
     required this.onCommand,
     super.key,
@@ -75,37 +78,28 @@ class ControlView extends StatelessWidget {
 
   final DashboardSnapshot snapshot;
   final String currentMode;
+  final bool online;
   final bool Function(String key) isRunning;
   final Future<void> Function(String modeCode) onCommand;
 
   @override
   Widget build(BuildContext context) {
     final status = snapshot.status;
-    final activeColor = _activeColor(status);
+    final activeColor = dominantSignalColor(status);
     final countdown =
         status.remainingSeconds >= 0 ? '${status.remainingSeconds}s' : '--';
-    final isCycle = currentMode == 'AUTO';
+    final allowPriority = currentMode != 'EMERGENCY';
+    final commandBusy = const [
+      'AUTO',
+      'NIGHT',
+      'EMERGENCY',
+      'PRIORITY_NS',
+      'PRIORITY_EW',
+    ].any((mode) => isRunning('cmd:$mode'));
+    final commandsEnabled = online && !commandBusy;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            ModeChip(
-              label: 'Manual',
-              active: !isCycle,
-              onTap: currentMode == 'AUTO'
-                  ? () => onCommand('NIGHT')
-                  : () {},
-            ),
-            const SizedBox(width: 8),
-            ModeChip(
-              label: 'Auto Cycle',
-              active: isCycle,
-              onTap: () => onCommand('AUTO'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
         GlassPanel(
           radius: 18,
           padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
@@ -125,104 +119,100 @@ class ControlView extends StatelessWidget {
               Row(
                 children: [
                   StatusStat(
-                    label: 'Trạng thái',
-                    value: currentMode == 'EMERGENCY' ? 'Khẩn cấp' : 'Đang bật',
-                    color: currentMode == 'EMERGENCY'
-                        ? AppColors.danger
-                        : AppColors.success,
+                    label: 'Chế độ',
+                    value: _modeSummary(currentMode),
+                    color: _modeColor(currentMode),
                   ),
                   const SizedBox(width: 8),
                   StatusStat(
-                    label: 'Chu kỳ',
-                    value: modeLabel(currentMode),
-                    color: AppColors.accent,
+                    label: 'Pha',
+                    value: _phaseLabel(status.phaseCode),
+                    color: _signalColor(activeColor),
                   ),
                   const SizedBox(width: 8),
-                  const StatusStat(
-                    label: 'Nhiệt độ',
-                    value: '—',
-                    color: AppColors.foreground2,
+                  StatusStat(
+                    label: 'Còn lại',
+                    value: countdown,
+                    color: _signalColor(activeColor),
                   ),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SectionLabel('Chế độ điều khiển'),
         Row(
           children: [
             MiniCommandButton(
               modeCode: 'AUTO',
-              label: 'Auto',
+              label: 'Tự động',
               icon: Icons.autorenew,
               color: AppColors.accent,
               active: currentMode == 'AUTO',
               loading: isRunning('cmd:AUTO'),
+              enabled: commandsEnabled,
               onPressed: onCommand,
             ),
             const SizedBox(width: 8),
             MiniCommandButton(
               modeCode: 'NIGHT',
-              label: 'Night',
+              label: 'Ban đêm',
               icon: Icons.nightlight_round,
               color: AppColors.warn,
               active: currentMode == 'NIGHT',
               loading: isRunning('cmd:NIGHT'),
+              enabled: commandsEnabled,
               onPressed: onCommand,
             ),
             const SizedBox(width: 8),
             MiniCommandButton(
               modeCode: 'EMERGENCY',
-              label: 'Stop',
+              label: 'Dừng',
               icon: Icons.stop_rounded,
               color: AppColors.danger,
               active: currentMode == 'EMERGENCY',
               loading: isRunning('cmd:EMERGENCY'),
+              enabled: commandsEnabled,
               onPressed: onCommand,
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SectionLabel('Ưu tiên luồng'),
         Row(
           children: [
             MiniCommandButton(
               modeCode: 'PRIORITY_NS',
-              label: 'NS',
+              label: 'Bắc-Nam',
               icon: Icons.swap_vert,
               color: AppColors.success,
               active: currentMode == 'PRIORITY_NS',
               loading: isRunning('cmd:PRIORITY_NS'),
+              enabled: allowPriority && commandsEnabled,
               onPressed: onCommand,
             ),
             const SizedBox(width: 8),
             MiniCommandButton(
               modeCode: 'PRIORITY_EW',
-              label: 'EW',
+              label: 'Đông-Tây',
               icon: Icons.swap_horiz,
               color: AppColors.success,
               active: currentMode == 'PRIORITY_EW',
               loading: isRunning('cmd:PRIORITY_EW'),
+              enabled: allowPriority && commandsEnabled,
               onPressed: onCommand,
             ),
           ],
         ),
+        if (!online) ...[
+          const SizedBox(height: 10),
+          const Text(
+            'Kết nối lại API để gửi lệnh điều khiển.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.warn, fontSize: 12),
+          ),
+        ],
       ],
     );
-  }
-
-  String _activeColor(TrafficStatus status) {
-    if (status.signals.isNotEmpty) {
-      final active = status.signals.firstWhere(
-        (signal) => signal.color != 'OFF',
-        orElse: () => status.signals.first,
-      );
-      return active.color;
-    }
-    return switch (status.phaseCode) {
-      'NS_GREEN' || 'EW_GREEN' => 'GREEN',
-      'NS_YELLOW' || 'EW_YELLOW' => 'YELLOW',
-      _ => 'RED',
-    };
   }
 
   String _colorVietnamese(String color) {
@@ -233,5 +223,54 @@ class ControlView extends StatelessWidget {
       _ => 'Đèn tắt',
     };
   }
+
+  String _modeSummary(String modeCode) {
+    return switch (modeCode) {
+      'AUTO' => 'Tự động',
+      'NIGHT' => 'Ban đêm',
+      'PRIORITY_NS' => 'Ưu tiên NS',
+      'PRIORITY_EW' => 'Ưu tiên EW',
+      'EMERGENCY' => 'Khẩn cấp',
+      '' => '--',
+      _ => modeLabel(modeCode),
+    };
+  }
+
+  String _phaseLabel(String phaseCode) {
+    return phaseLabel(phaseCode);
+  }
+
+  Color _modeColor(String modeCode) {
+    return switch (modeCode) {
+      'AUTO' => AppColors.accent,
+      'NIGHT' => AppColors.warn,
+      'PRIORITY_NS' || 'PRIORITY_EW' => AppColors.success,
+      'EMERGENCY' => AppColors.danger,
+      _ => AppColors.foreground2,
+    };
+  }
+
+  Color _signalColor(String color) {
+    return switch (color) {
+      'GREEN' => AppColors.success,
+      'YELLOW' => AppColors.warn,
+      'RED' => AppColors.danger,
+      _ => AppColors.foreground2,
+    };
+  }
 }
 
+String dominantSignalColor(TrafficStatus status) {
+  const priority = ['GREEN', 'YELLOW', 'RED'];
+  for (final color in priority) {
+    if (status.signals.any((signal) => signal.color == color)) {
+      return color;
+    }
+  }
+  return switch (status.phaseCode) {
+    'NS_GREEN' || 'EW_GREEN' || 'NS_PRIORITY' || 'EW_PRIORITY' => 'GREEN',
+    'NS_YELLOW' || 'EW_YELLOW' || 'YELLOW_BLINK' => 'YELLOW',
+    'ALL_RED' => 'RED',
+    _ => 'OFF',
+  };
+}

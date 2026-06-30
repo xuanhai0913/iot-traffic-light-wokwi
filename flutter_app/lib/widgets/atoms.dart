@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../app/colors.dart';
@@ -10,6 +9,7 @@ class AppHeader extends StatelessWidget {
     required this.online,
     required this.loading,
     required this.onRefresh,
+    this.showMenu = true,
     super.key,
   });
 
@@ -17,19 +17,23 @@ class AppHeader extends StatelessWidget {
   final bool online;
   final bool loading;
   final VoidCallback onRefresh;
+  final bool showMenu;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Builder(
-          builder: (context) => IconButton(
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            icon: const Icon(Icons.menu),
-            color: AppColors.accent,
-          ),
-        ),
+        if (showMenu)
+          Builder(
+            builder: (context) => IconButton(
+              tooltip: 'Menu',
+              onPressed: () => Scaffold.of(context).openDrawer(),
+              icon: const Icon(Icons.menu),
+              color: AppColors.accent,
+            ),
+          )
+        else
+          const SizedBox(width: 48),
         Expanded(
           child: Text(
             title,
@@ -40,7 +44,7 @@ class AppHeader extends StatelessWidget {
         IconButton(
           tooltip: loading ? 'Đang đồng bộ' : 'Làm mới',
           onPressed: loading ? null : onRefresh,
-          icon: Icon(loading ? Icons.sync : Icons.settings_outlined),
+          icon: Icon(loading ? Icons.sync : Icons.refresh),
           color: online ? AppColors.foreground2 : AppColors.warn,
         ),
       ],
@@ -48,10 +52,15 @@ class AppHeader extends StatelessWidget {
   }
 }
 
-
 class DeviceBadge extends StatelessWidget {
-  const DeviceBadge({required this.online, required this.apiBase, super.key});
+  const DeviceBadge({
+    required this.deviceId,
+    required this.online,
+    required this.apiBase,
+    super.key,
+  });
 
+  final String deviceId;
   final bool online;
   final String apiBase;
 
@@ -74,7 +83,7 @@ class DeviceBadge extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'TrafficLight-01 · $host',
+                '$deviceId · $host',
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.foreground2,
@@ -90,15 +99,16 @@ class DeviceBadge extends StatelessWidget {
   }
 }
 
-
 class AppDrawer extends StatelessWidget {
   const AppDrawer({
+    required this.deviceId,
     required this.online,
     required this.selectedPage,
     required this.onSelect,
     super.key,
   });
 
+  final String deviceId;
   final bool online;
   final String selectedPage;
   final ValueChanged<String> onSelect;
@@ -118,10 +128,12 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'TrafficLight-01',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    Text(
+                      deviceId,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -135,34 +147,33 @@ class AppDrawer extends StatelessWidget {
                 ),
               ),
               DrawerAction(
+                icon: Icons.radio_button_checked,
+                label: 'Điều khiển',
+                selected: selectedPage == 'control',
+                onTap: () => onSelect('control'),
+              ),
+              DrawerAction(
+                icon: Icons.verified_outlined,
+                label: 'Trực tiếp',
+                selected: selectedPage == 'live',
+                onTap: () => onSelect('live'),
+              ),
+              DrawerAction(
                 icon: Icons.description_outlined,
-                label: 'Phase Plans',
+                label: 'Chu kỳ AUTO',
                 selected: selectedPage == 'schedule',
                 onTap: () => onSelect('schedule'),
               ),
               DrawerAction(
                 icon: Icons.monitor_heart_outlined,
-                label: 'Device Logs',
+                label: 'Nhật ký thiết bị',
                 selected: selectedPage == 'logs',
                 onTap: () => onSelect('logs'),
               ),
               DrawerAction(
-                icon: Icons.chat_bubble_outline,
-                label: 'Commands Log',
-                selected: selectedPage == 'logs',
-                onTap: () => onSelect('logs'),
-              ),
-              DrawerAction(
-                icon: Icons.warning_amber_rounded,
-                label: 'Alerts',
-                selected: false,
-                onTap: () => onSelect('logs'),
-              ),
-              const Divider(color: AppColors.glassBorder, height: 24),
-              DrawerAction(
-                icon: Icons.help_outline,
-                label: 'Hướng dẫn',
-                selected: false,
+                icon: Icons.settings_outlined,
+                label: 'Cài đặt',
+                selected: selectedPage == 'settings',
                 onTap: () => onSelect('settings'),
               ),
               const Spacer(),
@@ -177,7 +188,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 }
-
 
 class DrawerAction extends StatelessWidget {
   const DrawerAction({
@@ -199,13 +209,13 @@ class DrawerAction extends StatelessWidget {
       selected: selected,
       selectedTileColor: AppColors.glass,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      leading: Icon(icon, color: selected ? AppColors.accent : AppColors.foreground2),
+      leading: Icon(icon,
+          color: selected ? AppColors.accent : AppColors.foreground2),
       title: Text(label),
       onTap: onTap,
     );
   }
 }
-
 
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
@@ -233,7 +243,6 @@ class GlassPanel extends StatelessWidget {
   }
 }
 
-
 class PulseDot extends StatelessWidget {
   const PulseDot({required this.color, this.size = 8, super.key});
 
@@ -259,7 +268,6 @@ class PulseDot extends StatelessWidget {
     );
   }
 }
-
 
 class StatusStat extends StatelessWidget {
   const StatusStat({
@@ -309,7 +317,6 @@ class StatusStat extends StatelessWidget {
   }
 }
 
-
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});
 
@@ -330,7 +337,6 @@ class SectionLabel extends StatelessWidget {
     );
   }
 }
-
 
 class TimingRow extends StatelessWidget {
   const TimingRow({
@@ -372,8 +378,7 @@ class TimingRow extends StatelessWidget {
             child: Text(
               '$value',
               textAlign: TextAlign.center,
-              style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             ),
           ),
           const Text('s', style: TextStyle(color: AppColors.foreground2)),
@@ -385,6 +390,30 @@ class TimingRow extends StatelessWidget {
   }
 }
 
+class RoundIconButton extends StatelessWidget {
+  const RoundIconButton(
+      {required this.icon, required this.onPressed, super.key});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 32,
+      child: IconButton.filled(
+        style: IconButton.styleFrom(
+          backgroundColor: AppColors.surface2,
+          foregroundColor: AppColors.foreground,
+          disabledBackgroundColor: AppColors.surface,
+          padding: EdgeInsets.zero,
+        ),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+      ),
+    );
+  }
+}
 
 class SectionCard extends StatelessWidget {
   const SectionCard({required this.title, required this.child, super.key});
@@ -410,7 +439,6 @@ class SectionCard extends StatelessWidget {
   }
 }
 
-
 class CommandTile extends StatelessWidget {
   const CommandTile({required this.entry, super.key});
 
@@ -418,17 +446,113 @@ class CommandTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.bolt),
-      title: Text(entry.command),
-      subtitle: Text('${entry.source} - ${entry.status}'),
-      trailing: Text(entry.createdAt),
+    final (statusColor, statusBg, statusText) =
+        commandStatusStyle(entry.deviceStatus);
+    final detail = entry.deviceMessage.isNotEmpty
+        ? humanizeDeviceMessage(entry.deviceMessage)
+        : _commandSummary(entry);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.glassBorder),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.bolt, size: 16, color: AppColors.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        commandLabel(
+                          entry.command,
+                          modeCode: entry.modeCode,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    color: AppColors.foreground2,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _commandMeta(entry),
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
-}
 
+  String _commandSummary(CommandEntry entry) {
+    final mode = entry.modeCode.isEmpty ? entry.command : entry.modeCode;
+    return '${entry.command} · ${entry.source} · ${modeLabel(mode)}';
+  }
+
+  String _commandMeta(CommandEntry entry) {
+    final pieces = <String>[
+      if (entry.createdBy.isNotEmpty) entry.createdBy,
+      if (entry.createdAt.isNotEmpty) entry.createdAt,
+      if (entry.acknowledgedAt.isNotEmpty)
+        'ACK ${entry.acknowledgedAt}'
+      else if (entry.publishedAt.isNotEmpty)
+        'PUB ${entry.publishedAt}',
+    ];
+    return pieces.isEmpty ? 'Chưa có thêm metadata' : pieces.join(' · ');
+  }
+}
 
 class LogTile extends StatelessWidget {
   const LogTile({required this.log, super.key});
@@ -467,7 +591,7 @@ class LogTile extends StatelessWidget {
           const SizedBox(width: AppColors.space2),
           Expanded(
             child: Text(
-              '${log.modeCode} · ${log.phaseCode}'
+              '${modeLabel(log.modeCode)} · ${phaseLabel(log.phaseCode)}'
               '${log.remainingSeconds >= 0 ? ' · ${log.remainingSeconds}s' : ''}',
               style: const TextStyle(
                 color: AppColors.foreground2,
@@ -483,14 +607,47 @@ class LogTile extends StatelessWidget {
   }
 }
 
-
 String logLevel(TrafficLog log) {
   final mode = log.modeCode.toUpperCase();
-  if (mode == 'EMERGENCY' || log.remainingSeconds < 0) return 'err';
+  if (mode == 'EMERGENCY') return 'err';
   if (mode == 'NIGHT' || mode == 'MAINTENANCE') return 'warn';
   return 'info';
 }
 
+(Color, Color, String) commandStatusStyle(String status) {
+  return switch (status) {
+    'acknowledged' => (
+        AppColors.success,
+        const Color(0x3334C759),
+        'ĐÃ ACK',
+      ),
+    'published' => (
+        AppColors.accent,
+        const Color(0x330071E3),
+        'ĐÃ GỬI',
+      ),
+    'queued' => (
+        AppColors.warn,
+        const Color(0x33FFCC00),
+        'ĐANG CHỜ',
+      ),
+    'publish_failed' => (
+        AppColors.danger,
+        const Color(0x33FF3B30),
+        'LỖI GỬI',
+      ),
+    'not_sent' => (
+        AppColors.danger,
+        const Color(0x33FF3B30),
+        'BỊ CHẶN',
+      ),
+    _ => (
+        AppColors.foreground2,
+        const Color(0x33636666),
+        status.isEmpty ? 'KHÔNG RÕ' : status.toUpperCase(),
+      ),
+  };
+}
 
 class _LevelPill extends StatelessWidget {
   const _LevelPill({required this.level});
@@ -526,43 +683,6 @@ class _LevelPill extends StatelessWidget {
   }
 }
 
-
-class StatusBanner extends StatelessWidget {
-  const StatusBanner({required this.status, required this.online, super.key});
-
-  final String status;
-  final bool online;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: online ? const Color(0xFFE6F4EA) : const Color(0xFFFFF3E0),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: online ? const Color(0xFFA8D5B8) : const Color(0xFFFFCC80)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(
-              online ? Icons.check_circle_outline : Icons.warning_amber_rounded,
-              size: 18,
-              color: online
-                  ? const Color(0xFF1F7A5B)
-                  : const Color(0xFFB26A00),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: Text(status)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
 enum SnackKind {
   success(Icons.check_circle, Color(0xFF1F7A5B), 2),
   error(Icons.error_outline, Color(0xFFC0392B), 4),
@@ -574,7 +694,6 @@ enum SnackKind {
   final Color color;
   final int durationSeconds;
 }
-
 
 class EmptyState extends StatelessWidget {
   const EmptyState({required this.text, super.key});
@@ -589,4 +708,3 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
-

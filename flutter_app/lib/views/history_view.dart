@@ -16,9 +16,9 @@ class HistoryView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionCard(
-          title: 'Command history',
+          title: 'Lịch sử lệnh',
           child: commands.isEmpty
-              ? const EmptyState(text: 'Chưa có command')
+              ? const EmptyState(text: 'Chưa có lệnh')
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -26,7 +26,7 @@ class HistoryView extends StatelessWidget {
                   itemBuilder: (_, i) => CommandTile(entry: commands[i]),
                 ),
         ),
-        const SizedBox(height: 12),
+        const SectionLabel('Nhật ký trạng thái'),
         DeviceLogsView(logs: logs),
       ],
     );

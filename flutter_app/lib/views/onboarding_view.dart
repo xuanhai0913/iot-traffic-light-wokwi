@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,7 +53,6 @@ class _OnboardingGateState extends State<OnboardingGate> {
   }
 }
 
-
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
@@ -73,7 +71,6 @@ class _SplashScreen extends StatelessWidget {
   }
 }
 
-
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({
     required this.onSkip,
@@ -90,8 +87,8 @@ class OnboardingScreen extends StatelessWidget {
       iconColor: AppColors.success,
       iconBg: Color(0x3334C759),
       name: 'AUTO',
-      desc: 'Chu kỳ tự động: ĐỎ (30s) → VÀNG (5s) → XANH (25s). '
-          'Hoạt động theo thời gian cài đặt mặc định hoặc theo lịch.',
+      desc: 'Chu kỳ tự động lần lượt qua pha Bắc-Nam xanh/vàng rồi '
+          'Đông-Tây xanh/vàng. Firmware mặc định 8 giây xanh, 3 giây vàng.',
       tag: 'MẶC ĐỊNH',
       tagColor: AppColors.success,
       tagBg: Color(0x2634C759),
@@ -109,24 +106,24 @@ class OnboardingScreen extends StatelessWidget {
       iconColor: AppColors.accent,
       iconBg: Color(0x330071E3),
       name: 'PRIORITY_NS',
-      desc: 'Ưu tiên hướng Bắc-Nam: thời gian XANH kéo dài cho trục '
-          'Bắc-Nam (60s). Hướng Đông-Tây rút ngắn còn 15s.',
+      desc: 'Giữ XANH cho hướng Bắc-Nam và ĐỎ cho hướng Đông-Tây '
+          'cho tới khi người vận hành chuyển sang chế độ khác.',
     ),
     _ModeSpec(
       glyph: '➡',
       iconColor: AppColors.accent,
       iconBg: Color(0x330071E3),
       name: 'PRIORITY_EW',
-      desc: 'Ưu tiên hướng Đông-Tây: thời gian XANH kéo dài cho trục '
-          'Đông-Tây (60s). Hướng Bắc-Nam rút ngắn còn 15s.',
+      desc: 'Giữ XANH cho hướng Đông-Tây và ĐỎ cho hướng Bắc-Nam '
+          'cho tới khi người vận hành chuyển sang chế độ khác.',
     ),
     _ModeSpec(
       glyph: '⚠',
       iconColor: AppColors.danger,
       iconBg: Color(0x33FF3B30),
       name: 'EMERGENCY',
-      desc: 'Chế độ khẩn cấp: tất cả các hướng chuyển sang ĐỎ. '
-          'Gửi tín hiệu ưu tiên cho xe cứu thương, cứu hỏa.',
+      desc: 'Tất cả các hướng giữ ĐỎ cho tới khi người vận hành '
+          'chuyển về AUTO hoặc NIGHT.',
       tag: 'KHẨN CẤP',
       tagColor: AppColors.danger,
       tagBg: Color(0x26FF3B30),
@@ -141,8 +138,8 @@ class OnboardingScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
                 AppColors.space5,
                 AppColors.space6,
                 AppColors.space5,
@@ -153,13 +150,12 @@ class OnboardingScreen extends StatelessWidget {
                 children: [
                   Text(
                     'Chế độ hoạt động',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: AppColors.space2),
+                  SizedBox(height: AppColors.space2),
                   Text(
                     'TrafficLight-IoT có 5 chế độ điều khiển đèn giao thông',
                     style: TextStyle(
@@ -180,7 +176,7 @@ class OnboardingScreen extends StatelessWidget {
                 itemCount: _modes.length,
                 separatorBuilder: (_, __) =>
                     const SizedBox(height: AppColors.space3),
-                itemBuilder: (_, i) => OnboardingModeCard(mode: _modes[i]),
+                itemBuilder: (_, i) => _OnboardingModeCard(mode: _modes[i]),
               ),
             ),
             Padding(
@@ -240,9 +236,8 @@ class OnboardingScreen extends StatelessWidget {
   }
 }
 
-
-class OnboardingModeCard extends StatelessWidget {
-  const OnboardingModeCard({required this.mode, super.key});
+class _OnboardingModeCard extends StatelessWidget {
+  const _OnboardingModeCard({required this.mode});
 
   final _ModeSpec mode;
 
@@ -318,7 +313,6 @@ class OnboardingModeCard extends StatelessWidget {
   }
 }
 
-
 class _Tag extends StatelessWidget {
   const _Tag({required this.text, required this.color, required this.bg});
 
@@ -349,7 +343,6 @@ class _Tag extends StatelessWidget {
     );
   }
 }
-
 
 class _ModeSpec {
   const _ModeSpec({

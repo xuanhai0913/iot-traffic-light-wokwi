@@ -5,13 +5,11 @@ import '../data/dashboard_snapshot.dart';
 import '../widgets/atoms.dart';
 
 const _kLogFilters = <_LogFilter>[
-  _LogFilter('all', 'Tat ca'),
+  _LogFilter('all', 'Tất cả'),
   _LogFilter('info', 'INFO'),
-  _LogFilter('ok', 'OK'),
   _LogFilter('warn', 'WARN'),
   _LogFilter('err', 'ERROR'),
 ];
-
 
 class DeviceLogsView extends StatefulWidget {
   const DeviceLogsView({required this.logs, super.key});
@@ -21,7 +19,6 @@ class DeviceLogsView extends StatefulWidget {
   @override
   State<DeviceLogsView> createState() => _DeviceLogsViewState();
 }
-
 
 class _DeviceLogsViewState extends State<DeviceLogsView> {
   String _filter = 'all';
@@ -48,7 +45,7 @@ class _DeviceLogsViewState extends State<DeviceLogsView> {
               ),
               const SizedBox(width: AppColors.space2),
               Text(
-                '${filtered.length} logs',
+                '${filtered.length} bản ghi',
                 style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: 12,
@@ -68,7 +65,7 @@ class _DeviceLogsViewState extends State<DeviceLogsView> {
           child: filtered.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(AppColors.space5),
-                  child: EmptyState(text: 'Chua co log'),
+                  child: EmptyState(text: 'Chưa có log'),
                 )
               : ListView.builder(
                   shrinkWrap: true,
@@ -81,7 +78,6 @@ class _DeviceLogsViewState extends State<DeviceLogsView> {
     );
   }
 }
-
 
 class _FilterDropdown extends StatelessWidget {
   const _FilterDropdown({required this.value, required this.onChanged});
@@ -126,7 +122,6 @@ class _FilterDropdown extends StatelessWidget {
     );
   }
 }
-
 
 class _LogFilter {
   const _LogFilter(this.value, this.label);

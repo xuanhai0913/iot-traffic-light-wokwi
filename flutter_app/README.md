@@ -39,13 +39,14 @@ dist/android/iot-traffic-light-v1.0.0.apk
 
 ## API URL
 
-Default API URL:
+Default API URL for Android Emulator:
 
 ```text
 http://10.0.2.2:8000
 ```
 
 Use this for Android Emulator because `10.0.2.2` points to the host computer.
+Web and iOS Simulator use `http://127.0.0.1:8000`.
 
 For a real phone on the same WiFi, replace it in the Settings screen:
 
@@ -57,6 +58,13 @@ Example:
 
 ```text
 http://192.168.1.10:8000
+```
+
+You can also inject the API URL while building for a real iPhone:
+
+```bash
+../.flutter/bin/flutter build ios --debug \
+  --dart-define=API_BASE_URL=http://YOUR_MAC_IP:8000
 ```
 
 The easiest way to get the correct PC IP and start the backend for phone testing is:

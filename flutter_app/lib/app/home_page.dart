@@ -10,7 +10,9 @@ import '../views/control_view.dart';
 import '../views/history_view.dart';
 import '../views/live_status_view.dart';
 import '../views/mobile_settings_view.dart';
+import '../views/schedule_view.dart';
 import '../widgets/atoms.dart';
+import '../widgets/dialogs.dart';
 
 class TrafficHomePage extends StatefulWidget {
   const TrafficHomePage({required this.messengerKey, super.key});
@@ -22,6 +24,16 @@ class TrafficHomePage extends StatefulWidget {
 }
 
 class _TrafficHomePageState extends State<TrafficHomePage> {
+  static const int _defaultDashboardPollTicks = 10;
+  static const int _dataHeavyDashboardPollTicks = 4;
+  static const List<String> _navPages = <String>[
+    'control',
+    'live',
+    'schedule',
+    'logs',
+    'settings',
+  ];
+
   final TextEditingController apiController =
       TextEditingController(text: defaultApiBase);
 
@@ -41,9 +53,18 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   bool skipDangerConfirm = false;
   String selectedPage = 'control';
   DateTime? _lastSnapshotAt;
+  bool _statusPollInFlight = false;
+  bool _dashboardRefreshInFlight = false;
+  int _pollTick = 0;
 
   bool isRunning(String key) => _runningActions.contains(key);
   bool get anyLoading => _runningActions.isNotEmpty;
+  String get _deviceId {
+    if (dashboard.deviceStatuses.isEmpty) {
+      return 'TrafficLight-01';
+    }
+    return text(dashboard.deviceStatuses.first['device_id'], 'TrafficLight-01');
+  }
 
   void _setRunning(String key, bool value) {
     setState(() {
@@ -59,8 +80,10 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   void initState() {
     super.initState();
     _bootstrap();
-    pollTimer =
-        Timer.periodic(const Duration(seconds: 1), (_) => refreshStatusOnly());
+    pollTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => unawaited(_pollOnce()),
+    );
   }
 
   Future<void> _bootstrap() async {
@@ -87,6 +110,28 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     await refreshDashboard();
   }
 
+  int get _dashboardPollTicks {
+    return switch (selectedPage) {
+      'logs' || 'settings' => _dataHeavyDashboardPollTicks,
+      _ => _defaultDashboardPollTicks,
+    };
+  }
+
+  Future<void> _pollOnce() async {
+    if (!online ||
+        anyLoading ||
+        _statusPollInFlight ||
+        _dashboardRefreshInFlight) {
+      return;
+    }
+    _pollTick += 1;
+    if (_pollTick % _dashboardPollTicks == 0) {
+      await _refreshDashboardSilently();
+      return;
+    }
+    await refreshStatusOnly();
+  }
+
   Future<void> toggleSkipConfirm(bool value) async {
     setState(() {
       skipDangerConfirm = value;
@@ -110,10 +155,19 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   }
 
   Future<void> refreshDashboard({bool force = false}) async {
+    if (_dashboardRefreshInFlight && force) {
+      while (_dashboardRefreshInFlight) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
+    if (_dashboardRefreshInFlight) {
+      return;
+    }
     if (isRunning('refresh') && !force) {
       return;
     }
 
+    _dashboardRefreshInFlight = true;
     _setRunning('refresh', true);
 
     try {
@@ -124,6 +178,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
             DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
         online = true;
         _lastSnapshotAt = DateTime.now();
+        _pollTick = 0;
       });
     } catch (error) {
       if (!mounted) return;
@@ -134,14 +189,40 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         _showSnack(SnackKind.error, error.toString());
       }
     } finally {
+      _dashboardRefreshInFlight = false;
       if (mounted) {
         _setRunning('refresh', false);
       }
     }
   }
 
+  Future<void> _refreshDashboardSilently() async {
+    if (_dashboardRefreshInFlight || anyLoading) {
+      return;
+    }
+    _dashboardRefreshInFlight = true;
+    try {
+      final data = await api.getJson('/api/intersections/1/dashboard');
+      if (!mounted) return;
+      setState(() {
+        dashboard =
+            DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
+        online = true;
+        _lastSnapshotAt = DateTime.now();
+        _pollTick = 0;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        online = false;
+      });
+    } finally {
+      _dashboardRefreshInFlight = false;
+    }
+  }
+
   Future<void> refreshStatusOnly() async {
-    if (!online) {
+    if (!online || _statusPollInFlight || _dashboardRefreshInFlight) {
       return;
     }
     // Skip the silent poll while any user-initiated action is running so
@@ -150,6 +231,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       return;
     }
 
+    _statusPollInFlight = true;
     try {
       final data = await api.getJson('/api/intersections/1/status');
       if (!mounted) return;
@@ -157,6 +239,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         dashboard = dashboard.copyWith(
           status: TrafficStatus.fromJson(data['data'] as Map<String, dynamic>),
         );
+        _lastSnapshotAt = DateTime.now();
       });
     } catch (_) {
       if (mounted) {
@@ -164,12 +247,14 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           online = false;
         });
       }
+    } finally {
+      _statusPollInFlight = false;
     }
   }
 
   Future<void> sendCommand(String modeCode) async {
     final key = 'cmd:$modeCode';
-    if (isRunning(key)) {
+    if (_runningActions.any((action) => action.startsWith('cmd:'))) {
       return;
     }
 
@@ -197,7 +282,20 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showCommandResultDialog(result);
+      final latestCommand = _latestCommandEntry(result) ??
+          CommandEntry.fallback(
+            command: result['command']?.toString() ?? 'SET_$modeCode',
+            modeCode: result['trafficStatus'] is Map<String, dynamic>
+                ? text(
+                    (result['trafficStatus']
+                        as Map<String, dynamic>)['modeCode'],
+                    modeCode,
+                  )
+                : modeCode,
+            source: 'flutter',
+            createdBy: 'operator',
+          );
+      _showCommandResultDialog(latestCommand);
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {
@@ -246,45 +344,69 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     );
   }
 
-  Future<void> _showCommandResultDialog(Map<String, dynamic> result) async {
+  CommandEntry? _latestCommandEntry(Map<String, dynamic> result) {
+    if (dashboard.commands.isEmpty) {
+      return null;
+    }
+    final createdCommand = result['command']?.toString();
+    if (createdCommand == null || createdCommand.isEmpty) {
+      return dashboard.commands.first;
+    }
+    for (final entry in dashboard.commands) {
+      if (entry.command == createdCommand) {
+        return entry;
+      }
+    }
+    return dashboard.commands.first;
+  }
+
+  Future<void> _showCommandResultDialog(CommandEntry entry) async {
     final messenger = _messengerKey.currentState;
     if (messenger == null) {
       return;
     }
-    final command = result['command']?.toString() ?? 'SET_?';
-    final commandId = result['commandId'] ?? result['id'] ?? '-';
-    final modeCode = result['modeCode']?.toString() ?? '-';
-    final source = result['source']?.toString() ?? '-';
-    final createdBy = result['createdBy']?.toString() ?? '-';
-    final createdAt = compactTime(result['createdAt'] ?? result['created_at']);
-    final deviceStatus = result['deviceStatus']?.toString() ?? 'queued';
-    final String commandIdDisplay = commandId.toString();
     final isIOS = defaultTargetPlatform == TargetPlatform.iOS;
 
     Future<void> Function() showIt = isIOS
         ? () => showCupertinoDialog<void>(
               context: messenger.context,
               builder: (ctx) => CommandResultDialog(
-                command: command,
-                commandId: commandIdDisplay,
-                modeCode: modeCode,
-                source: source,
-                createdBy: createdBy,
-                createdAt: createdAt,
-                deviceStatus: deviceStatus,
+                command: entry.command,
+                commandId: entry.id <= 0 ? '-' : entry.id.toString(),
+                modeCode: entry.modeCode.isEmpty ? '-' : entry.modeCode,
+                source: entry.source.isEmpty ? '-' : entry.source,
+                createdBy: entry.createdBy.isEmpty ? '-' : entry.createdBy,
+                createdAt: entry.createdAt,
+                commandStatus: entry.commandStatus.isEmpty
+                    ? 'success'
+                    : entry.commandStatus,
+                deviceStatus:
+                    entry.deviceStatus.isEmpty ? 'queued' : entry.deviceStatus,
+                deviceMessage: entry.deviceMessage,
+                mqttTopic: entry.mqttTopic,
+                publishedAt: entry.publishedAt,
+                acknowledgedAt: entry.acknowledgedAt,
                 isIOS: true,
               ),
             )
         : () => showDialog<void>(
               context: messenger.context,
               builder: (ctx) => CommandResultDialog(
-                command: command,
-                commandId: commandIdDisplay,
-                modeCode: modeCode,
-                source: source,
-                createdBy: createdBy,
-                createdAt: createdAt,
-                deviceStatus: deviceStatus,
+                command: entry.command,
+                commandId: entry.id <= 0 ? '-' : entry.id.toString(),
+                modeCode: entry.modeCode.isEmpty ? '-' : entry.modeCode,
+                source: entry.source.isEmpty ? '-' : entry.source,
+                createdBy: entry.createdBy.isEmpty ? '-' : entry.createdBy,
+                createdAt: entry.createdAt,
+                commandStatus: entry.commandStatus.isEmpty
+                    ? 'success'
+                    : entry.commandStatus,
+                deviceStatus:
+                    entry.deviceStatus.isEmpty ? 'queued' : entry.deviceStatus,
+                deviceMessage: entry.deviceMessage,
+                mqttTopic: entry.mqttTopic,
+                publishedAt: entry.publishedAt,
+                acknowledgedAt: entry.acknowledgedAt,
               ),
             );
 
@@ -381,13 +503,17 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     _setRunning('apply-url', true);
 
     try {
-      final value = apiController.text.trim().replaceAll(RegExp(r'/+$'), '');
-      if (value.isEmpty) {
-        _showSnack(SnackKind.error, 'API URL không được để trống');
+      final value = normalizeApiBase(apiController.text);
+      if (value == null) {
+        _showSnack(
+          SnackKind.error,
+          'Địa chỉ API phải bắt đầu bằng http:// hoặc https://',
+        );
         return;
       }
 
       setState(() {
+        apiController.text = value;
         api = ApiClient(value);
         online = false;
       });
@@ -403,7 +529,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         }
       }
 
-      await refreshDashboard();
+      await refreshDashboard(force: true);
       if (!mounted) return;
       if (online) {
         _showSnack(SnackKind.success, 'Đã kết nối $value');
@@ -437,23 +563,21 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     );
   }
 
-  String get connectionLabel {
-    if (anyLoading) {
-      return 'Đang đồng bộ backend ...';
-    }
-    return online ? 'Backend sẵn sàng' : 'Mất kết nối backend';
-  }
-
   @override
   Widget build(BuildContext context) {
     final content = switch (selectedPage) {
       'control' => ControlView(
           snapshot: dashboard,
           currentMode: dashboard.status.modeCode,
+          online: online,
           isRunning: isRunning,
           onCommand: sendCommand,
         ),
-      'live' => LiveStatusView(snapshot: dashboard, lastSnapshotAt: _lastSnapshotAt),
+      'live' => LiveStatusView(
+          snapshot: dashboard,
+          lastSnapshotAt: _lastSnapshotAt,
+          online: online,
+        ),
       'schedule' => ManageView(
           phasePlans: dashboard.phasePlans,
           approaches: dashboard.approaches,
@@ -472,12 +596,13 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           phasePlans: dashboard.phasePlans,
           skipDangerConfirm: skipDangerConfirm,
           onApply: applyApiBase,
-          onRefresh: refreshDashboard,
+          onRefresh: () => refreshDashboard(force: true),
           onToggleSkipConfirm: toggleSkipConfirm,
         ),
       _ => ControlView(
           snapshot: dashboard,
           currentMode: dashboard.status.modeCode,
+          online: online,
           isRunning: isRunning,
           onCommand: sendCommand,
         ),
@@ -487,84 +612,90 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       // iOS uses CupertinoTabScaffold; the body is the same content tree
       // (AppHeader + DeviceBadge + AnimatedSwitcher), wrapped per-tab in
       // CupertinoTabView so each tab keeps its own Navigator stack.
-      return CupertinoTabScaffold(
-        tabBar: CupertinoTabBar(
-          backgroundColor: AppColors.surface,
-          activeColor: AppColors.accent,
-          inactiveColor: AppColors.muted,
-          currentIndex: switch (selectedPage) {
-            'live' => 1,
-            'schedule' => 2,
-            'settings' => 3,
-            _ => 0,
-          },
-          onTap: (index) {
-            setState(() {
-              selectedPage =
-                  ['control', 'live', 'schedule', 'settings'][index];
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.radio_button_checked),
-              label: 'Điều khiển',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.verified_outlined),
-              label: 'Trực tiếp',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.schedule_outlined),
-              label: 'Lịch',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              label: 'Cài đặt',
-            ),
-          ],
-        ),
-        tabBuilder: (context, _) {
-          return CupertinoTabView(
-            builder: (tabContext) {
-              return CupertinoPageScaffold(
-                backgroundColor: AppColors.background,
-                child: SafeArea(
-                  child: RefreshIndicator(
-                    onRefresh: refreshDashboard,
-                    color: AppColors.accent,
-                    backgroundColor: AppColors.surface,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 88),
-                      children: [
-                        AppHeader(
-                          title: _pageTitle(selectedPage),
-                          online: online,
-                          loading: anyLoading,
-                          onRefresh: () => refreshDashboard(force: true),
-                        ),
-                        const SizedBox(height: 8),
-                        DeviceBadge(
-                            online: online, apiBase: api.baseUrl),
-                        const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          child: KeyedSubtree(
-                            key: ValueKey(selectedPage),
-                            child: content,
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: CupertinoTabScaffold(
+          tabBar: CupertinoTabBar(
+            backgroundColor: AppColors.surface,
+            activeColor: AppColors.accent,
+            inactiveColor: AppColors.muted,
+            currentIndex: _navIndex(selectedPage),
+            onTap: (index) {
+              setState(() {
+                selectedPage = _navPages[index];
+              });
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.radio_button_checked),
+                label: 'Điều khiển',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.verified_outlined),
+                label: 'Trực tiếp',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.schedule_outlined),
+                label: 'Lịch',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                label: 'Nhật ký',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.settings_outlined),
+                label: 'Cài đặt',
+              ),
+            ],
+          ),
+          tabBuilder: (context, _) {
+            return CupertinoTabView(
+              builder: (tabContext) {
+                return CupertinoPageScaffold(
+                  backgroundColor: AppColors.background,
+                  child: SafeArea(
+                    child: RefreshIndicator(
+                      onRefresh: refreshDashboard,
+                      color: AppColors.accent,
+                      backgroundColor: AppColors.surface,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                        children: [
+                          AppHeader(
+                            title: _pageTitle(selectedPage),
+                            online: online,
+                            loading: anyLoading,
+                            onRefresh: () => refreshDashboard(force: true),
+                            showMenu: false,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          DeviceBadge(
+                            deviceId: _deviceId,
+                            online: online,
+                            apiBase: api.baseUrl,
+                          ),
+                          const SizedBox(height: 12),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            child: KeyedSubtree(
+                              key: ValueKey(selectedPage),
+                              child: content,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       );
     }
     return Scaffold(
       drawer: AppDrawer(
+        deviceId: _deviceId,
         online: online,
         selectedPage: selectedPage,
         onSelect: (page) {
@@ -580,7 +711,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           color: AppColors.accent,
           backgroundColor: AppColors.surface,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 88),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
             children: [
               AppHeader(
                 title: _pageTitle(selectedPage),
@@ -589,7 +720,11 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
                 onRefresh: () => refreshDashboard(force: true),
               ),
               const SizedBox(height: 8),
-              DeviceBadge(online: online, apiBase: api.baseUrl),
+              DeviceBadge(
+                deviceId: _deviceId,
+                online: online,
+                apiBase: api.baseUrl,
+              ),
               const SizedBox(height: 12),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 260),
@@ -608,15 +743,10 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
           border: Border(top: BorderSide(color: AppColors.glassBorder)),
         ),
         child: NavigationBar(
-          selectedIndex: switch (selectedPage) {
-            'live' => 1,
-            'schedule' => 2,
-            'settings' => 3,
-            _ => 0,
-          },
+          selectedIndex: _navIndex(selectedPage),
           onDestinationSelected: (index) {
             setState(() {
-              selectedPage = ['control', 'live', 'schedule', 'settings'][index];
+              selectedPage = _navPages[index];
             });
           },
           destinations: const [
@@ -636,6 +766,11 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
               label: 'Lịch',
             ),
             NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Nhật ký',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings),
               label: 'Cài đặt',
@@ -646,14 +781,19 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     );
   }
 
+  int _navIndex(String page) {
+    final index = _navPages.indexOf(page);
+    return index < 0 ? 0 : index;
+  }
+
   String _pageTitle(String page) {
     return switch (page) {
-      'control' => 'Dashboard',
-      'live' => 'Trạng thái',
-      'schedule' => 'Auto Cycle',
-      'logs' => 'Device Logs',
+      'control' => 'Điều khiển',
+      'live' => 'Trạng thái trực tiếp',
+      'schedule' => 'Chu kỳ AUTO',
+      'logs' => 'Nhật ký thiết bị',
       'settings' => 'Cài đặt & Trạng thái',
-      _ => 'Dashboard',
+      _ => 'Điều khiển',
     };
   }
 }

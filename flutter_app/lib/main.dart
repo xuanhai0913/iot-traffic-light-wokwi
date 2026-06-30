@@ -1,12 +1,7 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'app/colors.dart';
 import 'app/home_page.dart';
-import 'data/dashboard_snapshot.dart';
 import 'views/onboarding_view.dart';
 
 void main() {
@@ -33,19 +28,6 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
   Widget build(BuildContext context) {
     final home = TrafficHomePage(messengerKey: _messengerKey);
     final gate = OnboardingGate(home: home);
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return CupertinoApp(
-        debugShowCheckedModeBanner: false,
-        title: 'IoT Traffic Light',
-        theme: const CupertinoThemeData(
-          brightness: Brightness.dark,
-          primaryColor: AppColors.accent,
-          scaffoldBackgroundColor: AppColors.background,
-          barBackgroundColor: AppColors.surface,
-        ),
-        home: gate,
-      );
-    }
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messengerKey,
@@ -105,5 +87,3 @@ class _TrafficOperatorAppState extends State<TrafficOperatorApp> {
     );
   }
 }
-
-

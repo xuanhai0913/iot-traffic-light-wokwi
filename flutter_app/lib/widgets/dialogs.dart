@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../app/colors.dart';
+import '../data/dashboard_snapshot.dart';
+import 'atoms.dart';
 
 class _ResultRow extends StatelessWidget {
   const _ResultRow({required this.label, required this.value});
@@ -39,7 +40,6 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
-
 class CommandResultDialog extends StatelessWidget {
   const CommandResultDialog({
     required this.command,
@@ -48,7 +48,12 @@ class CommandResultDialog extends StatelessWidget {
     required this.source,
     required this.createdBy,
     required this.createdAt,
+    required this.commandStatus,
     required this.deviceStatus,
+    required this.deviceMessage,
+    required this.mqttTopic,
+    required this.publishedAt,
+    required this.acknowledgedAt,
     this.isIOS = false,
     super.key,
   });
@@ -59,32 +64,50 @@ class CommandResultDialog extends StatelessWidget {
   final String source;
   final String createdBy;
   final String createdAt;
+  final String commandStatus;
   final String deviceStatus;
+  final String deviceMessage;
+  final String mqttTopic;
+  final String publishedAt;
+  final String acknowledgedAt;
   final bool isIOS;
 
   @override
   Widget build(BuildContext context) {
+    final (statusColor, _, statusText) = commandStatusStyle(deviceStatus);
     final body = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _ResultRow(label: 'Command ID', value: commandId),
         _ResultRow(label: 'Mode', value: modeCode),
-        _ResultRow(label: 'Source', value: source),
-        _ResultRow(label: 'Created by', value: createdBy),
-        _ResultRow(label: 'Created at', value: createdAt),
-        _ResultRow(label: 'Device status', value: deviceStatus),
+        _ResultRow(label: 'Nguồn', value: source),
+        _ResultRow(label: 'Người gửi', value: createdBy),
+        _ResultRow(label: 'API', value: commandStatus),
+        _ResultRow(label: 'Thiết bị', value: '$statusText ($deviceStatus)'),
+        if (createdAt.isNotEmpty)
+          _ResultRow(label: 'Tạo lúc', value: createdAt),
+        if (publishedAt.isNotEmpty)
+          _ResultRow(label: 'Publish lúc', value: publishedAt),
+        if (acknowledgedAt.isNotEmpty)
+          _ResultRow(label: 'ACK lúc', value: acknowledgedAt),
+        if (mqttTopic.isNotEmpty)
+          _ResultRow(label: 'MQTT topic', value: mqttTopic),
+        if (deviceMessage.isNotEmpty)
+          _ResultRow(
+            label: 'Chi tiết',
+            value: humanizeDeviceMessage(deviceMessage),
+          ),
         const SizedBox(height: 8),
-        const Text(
-          'The MQTT bridge will publish this payload to the '
-          'Wokwi device on the next tick.',
-          style: TextStyle(fontSize: 12),
+        Text(
+          _statusHint(deviceStatus),
+          style: TextStyle(fontSize: 12, color: statusColor),
         ),
       ],
     );
     if (isIOS) {
       return CupertinoAlertDialog(
-        title: Text('Command accepted: $command'),
+        title: Text(_title(deviceStatus, command)),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: body,
@@ -93,7 +116,7 @@ class CommandResultDialog extends StatelessWidget {
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: const Text('Đóng'),
           ),
         ],
       );
@@ -101,10 +124,10 @@ class CommandResultDialog extends StatelessWidget {
     return AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF1F7A5B)),
+          Icon(_statusIcon(deviceStatus), color: statusColor),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Command accepted: $command',
+            child: Text(_title(deviceStatus, command),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -113,20 +136,50 @@ class CommandResultDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: const Text('Đóng'),
         ),
       ],
     );
   }
+
+  String _title(String deviceStatus, String command) {
+    return switch (deviceStatus) {
+      'acknowledged' => 'Thiết bị đã áp dụng $command',
+      'published' => 'Đã gửi $command lên MQTT',
+      'publish_failed' => 'Gửi $command xuống thiết bị thất bại',
+      'not_sent' => '$command bị từ chối',
+      _ => 'Đã ghi nhận $command',
+    };
+  }
+
+  String _statusHint(String deviceStatus) {
+    return switch (deviceStatus) {
+      'acknowledged' => 'ESP32/Wokwi đã xác nhận áp dụng lệnh này.',
+      'published' => 'Bridge MQTT đã publish lệnh, đang chờ thiết bị ACK.',
+      'publish_failed' =>
+        'API vẫn nhận lệnh, nhưng bridge MQTT chưa gửi được xuống thiết bị.',
+      'not_sent' => 'Lệnh bị backend chặn trước khi gửi xuống thiết bị.',
+      _ => 'Lệnh đã được backend ghi nhận và đang chờ bridge MQTT xử lý.',
+    };
+  }
+
+  IconData _statusIcon(String deviceStatus) {
+    return switch (deviceStatus) {
+      'acknowledged' => Icons.verified,
+      'published' => Icons.upload_rounded,
+      'publish_failed' || 'not_sent' => Icons.error_outline,
+      _ => Icons.schedule_send,
+    };
+  }
 }
 
-
 enum DangerLevel {
-  safe('Safe', Icons.check_circle_outline, Color(0xFF1F7A5B), 'No extra caution needed.'),
-  risky('Risky', Icons.warning_amber_rounded, Color(0xFFB26A00),
-      'One direction will be blocked from green.'),
-  critical('Critical', Icons.dangerous_outlined, Color(0xFFC0392B),
-      'All approaches will flash red until cleared by the operator.');
+  safe('An toàn', Icons.check_circle_outline, Color(0xFF1F7A5B),
+      'Không cần xác nhận bổ sung.'),
+  risky('Cần chú ý', Icons.warning_amber_rounded, Color(0xFFB26A00),
+      'Một hướng sẽ bị chặn đèn xanh.'),
+  critical('Nguy hiểm', Icons.dangerous_outlined, Color(0xFFC0392B),
+      'Tất cả các hướng sẽ giữ đèn đỏ cho tới khi người vận hành đổi mode.');
 
   const DangerLevel(this.label, this.icon, this.color, this.description);
 
@@ -144,7 +197,6 @@ enum DangerLevel {
   }
 }
 
-
 class DangerousCommandDialog extends StatelessWidget {
   const DangerousCommandDialog({
     required this.modeCode,
@@ -159,13 +211,10 @@ class DangerousCommandDialog extends StatelessWidget {
 
   String get _impact {
     return switch (modeCode) {
-      'PRIORITY_NS' =>
-        'North-South will get a forced green while East-West stays red.',
-      'PRIORITY_EW' =>
-        'East-West will get a forced green while North-South stays red.',
-      'EMERGENCY' =>
-        'Both directions will lock on flashing red. Traffic will stop '
-            'until you switch back to AUTO or NIGHT.',
+      'PRIORITY_NS' => 'Hướng Bắc-Nam sẽ bị ép xanh, còn Đông-Tây giữ đỏ.',
+      'PRIORITY_EW' => 'Hướng Đông-Tây sẽ bị ép xanh, còn Bắc-Nam giữ đỏ.',
+      'EMERGENCY' => 'Tất cả các hướng sẽ giữ đỏ liên tục cho tới khi bạn '
+          'chuyển về AUTO hoặc NIGHT.',
       _ => danger.description,
     };
   }
@@ -177,7 +226,7 @@ class DangerousCommandDialog extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Risk level: ${danger.label}',
+          'Mức độ rủi ro: ${danger.label}',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: danger.color,
@@ -187,15 +236,14 @@ class DangerousCommandDialog extends StatelessWidget {
         Text(_impact),
         const SizedBox(height: 12),
         const Text(
-          'The Wokwi device will receive the new mode on its next '
-          'MQTT tick (~1 second).',
+          'Thiết bị sẽ nhận mode mới khi bridge MQTT gửi lệnh thành công.',
           style: TextStyle(fontSize: 12),
         ),
       ],
     );
     if (isIOS) {
       return CupertinoAlertDialog(
-        title: Text('Confirm SET_$modeCode'),
+        title: Text('Xác nhận SET_$modeCode'),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: content,
@@ -203,24 +251,24 @@ class DangerousCommandDialog extends StatelessWidget {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Hủy'),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Send anyway'),
+            child: const Text('Vẫn gửi'),
           ),
         ],
       );
     }
     return AlertDialog(
       icon: Icon(danger.icon, color: danger.color, size: 32),
-      title: Text('Confirm SET_$modeCode'),
+      title: Text('Xác nhận SET_$modeCode'),
       content: content,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: const Text('Hủy'),
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
@@ -229,10 +277,9 @@ class DangerousCommandDialog extends StatelessWidget {
           ),
           onPressed: () => Navigator.of(context).pop(true),
           icon: const Icon(Icons.send),
-          label: const Text('Send anyway'),
+          label: const Text('Vẫn gửi'),
         ),
       ],
     );
   }
 }
-
