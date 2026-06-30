@@ -562,6 +562,9 @@ class LogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final level = logLevel(log);
+    final timestampParts = log.createdAt.split(' ');
+    final date = timestampParts.isEmpty ? '' : _shortDate(timestampParts.first);
+    final clock = timestampParts.length < 2 ? '' : timestampParts.last;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppColors.space3,
@@ -576,14 +579,30 @@ class LogTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 56,
-            child: Text(
-              log.createdAt,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 10,
-                fontFamily: 'monospace',
-              ),
+            width: 64,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  clock.isEmpty ? log.createdAt : clock,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppColors.foreground2,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                if (clock.isNotEmpty && date.isNotEmpty)
+                  Text(
+                    date,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: AppColors.space2),
@@ -604,6 +623,14 @@ class LogTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _shortDate(String value) {
+    final parts = value.split('-');
+    if (parts.length != 3) {
+      return value;
+    }
+    return '${parts[2]}/${parts[1]}';
   }
 }
 

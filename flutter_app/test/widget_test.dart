@@ -7,6 +7,7 @@ import 'package:iot_traffic_light/main.dart';
 import 'package:iot_traffic_light/views/control_view.dart';
 import 'package:iot_traffic_light/views/live_status_view.dart';
 import 'package:iot_traffic_light/views/mobile_settings_view.dart';
+import 'package:iot_traffic_light/views/schedule_view.dart';
 import 'package:iot_traffic_light/widgets/atoms.dart';
 import 'package:iot_traffic_light/widgets/dialogs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +23,8 @@ void main() {
     expect(find.text('Chế độ hoạt động'), findsOneWidget);
     expect(find.text('Bỏ qua'), findsOneWidget);
     expect(find.text('Bắt đầu'), findsOneWidget);
+    expect(find.textContaining('Firmware mặc định 8 giây'), findsNothing);
+    expect(find.textContaining('chu kỳ đang kích hoạt'), findsOneWidget);
   });
 
   testWidgets('renders traffic operator app', (WidgetTester tester) async {
@@ -131,10 +134,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Đã gửi SET_AUTO lên MQTT'), findsOneWidget);
-    expect(find.text('Command ID'), findsOneWidget);
+    expect(find.text('Đã gửi lệnh lên MQTT'), findsOneWidget);
+    expect(find.text('Bật chế độ tự động (SET_AUTO)'), findsOneWidget);
+    expect(find.text('Mã lệnh'), findsOneWidget);
     expect(find.text('999'), findsOneWidget);
-    expect(find.text('Mode'), findsOneWidget);
+    expect(find.text('Chế độ'), findsOneWidget);
     expect(find.text('AUTO'), findsOneWidget);
     expect(find.text('Nguồn'), findsOneWidget);
     expect(find.text('flutter'), findsOneWidget);
@@ -144,9 +148,44 @@ void main() {
     expect(find.text('2026-06-18 17:30:00'), findsOneWidget);
     expect(find.text('Thiết bị'), findsOneWidget);
     expect(find.textContaining('ĐÃ GỬI'), findsOneWidget);
-    expect(find.text('MQTT topic'), findsOneWidget);
+    expect(find.text('Chủ đề MQTT'), findsOneWidget);
     expect(find.text('traffic/demo/intersections/1/commands'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Đóng'), findsOneWidget);
+  });
+
+  testWidgets('CommandResultDialog fits long MQTT details on a narrow phone',
+      (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 568));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => const Scaffold(
+            body: Center(
+              child: CommandResultDialog(
+                command: 'SET_PRIORITY_NS',
+                commandId: '1000000001',
+                modeCode: 'PRIORITY_NS',
+                source: 'flutter_mobile_operator',
+                createdBy: 'operator-with-long-display-name',
+                createdAt: '2026-06-30 17:30:00',
+                commandStatus: 'success',
+                deviceStatus: 'published',
+                deviceMessage: 'Published to MQTT broker',
+                mqttTopic:
+                    'traffic/hainx-iot-traffic-light/intersections/1/commands',
+                publishedAt: '2026-06-30 17:30:01',
+                acknowledgedAt: '',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Chủ đề MQTT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   group('SettingsStore', () {
@@ -220,6 +259,30 @@ void main() {
     expect(normalizeApiBase('192.168.1.10:8000'), isNull);
     expect(normalizeApiBase('ftp://192.168.1.10'), isNull);
     expect(normalizeApiBase('http://host:8000?debug=true'), isNull);
+  });
+
+  test('rejects API payloads that are not JSON objects', () {
+    expect(decodeJsonObject('{"data":{"ok":true}}')['data'], isA<Map>());
+    expect(
+        requireDataMap({
+          'data': {'modeCode': 'AUTO'}
+        })['modeCode'],
+        'AUTO');
+    expect(() => decodeJsonObject('[]'), throwsA(isA<ApiException>()));
+    expect(() => requireDataMap({'data': []}), throwsA(isA<ApiException>()));
+  });
+
+  test('converts SQLite UTC timestamps to the device timezone', () {
+    final expected = DateTime.utc(2026, 6, 30, 10, 20, 30).toLocal();
+    final actual = DateTime.parse(
+        compactTime('2026-06-30 10:20:30').replaceFirst(' ', 'T'));
+
+    expect(actual, expected);
+    expect(
+      compactTime('2026-06-30T10:20:30Z'),
+      compactTime('2026-06-30 10:20:30'),
+    );
+    expect(compactTime('not-a-date'), 'not-a-date');
   });
 
   test('empty traffic status does not pretend a live AUTO phase exists', () {
@@ -296,7 +359,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Xác nhận SET_EMERGENCY'), findsOneWidget);
+    expect(find.text('Xác nhận Dừng khẩn cấp'), findsOneWidget);
+    expect(find.text('Mã lệnh: SET_EMERGENCY'), findsOneWidget);
     expect(find.text('Mức độ rủi ro: Nguy hiểm'), findsOneWidget);
     // Critical dialog must mention solid red so the operator reads the
     // consequence before tapping Send.
@@ -323,8 +387,10 @@ void main() {
     );
 
     expect(find.text('Mức độ rủi ro: Cần chú ý'), findsOneWidget);
-    expect(find.textContaining('Bắc-Nam'), findsOneWidget);
-    expect(find.textContaining('Đông-Tây'), findsOneWidget);
+    expect(
+      find.text('Hướng Bắc-Nam sẽ bị ép xanh, còn Đông-Tây giữ đỏ.'),
+      findsOneWidget,
+    );
   });
 
   test('CommandEntry keeps MQTT delivery fields from backend history', () {
@@ -348,8 +414,8 @@ void main() {
     expect(entry.deviceStatus, 'acknowledged');
     expect(entry.deviceMessage, 'device applied');
     expect(entry.mqttTopic, 'traffic/demo/intersections/1/commands');
-    expect(entry.publishedAt, '2026-06-30 10:00:01');
-    expect(entry.acknowledgedAt, '2026-06-30 10:00:02');
+    expect(entry.publishedAt, compactTime('2026-06-30 10:00:01'));
+    expect(entry.acknowledgedAt, compactTime('2026-06-30 10:00:02'));
   });
 
   test('humanizeDeviceMessage translates common backend delivery messages', () {
@@ -498,6 +564,127 @@ void main() {
     expect(find.text('Phiên bản firmware'), findsNothing);
     expect(find.text('Bảo mật'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('settings do not report an inactive phase plan as active',
+      (WidgetTester tester) async {
+    final controller = TextEditingController(text: 'http://127.0.0.1:8000');
+    addTearDown(controller.dispose);
+    final inactivePlan = PhasePlan(
+      id: 4,
+      name: 'Chu kỳ dự phòng',
+      isActive: false,
+      steps: [
+        PhaseStep(code: 'NS_GREEN', durationSeconds: 15),
+        PhaseStep(code: 'NS_YELLOW', durationSeconds: 4),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              MobileSettingsView(
+                controller: controller,
+                online: true,
+                apiBase: controller.text,
+                isRunning: (_) => false,
+                deviceStatuses: const [],
+                phasePlans: [inactivePlan],
+                skipDangerConfirm: false,
+                onApply: () async {},
+                onRefresh: () async {},
+                onToggleSkipConfirm: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('15/4s'), findsNothing);
+    expect(find.text('—'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('settings lock connection actions while either action is running',
+      (WidgetTester tester) async {
+    final controller = TextEditingController(text: 'http://127.0.0.1:8000');
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              MobileSettingsView(
+                controller: controller,
+                online: true,
+                apiBase: controller.text,
+                isRunning: (key) => key == 'refresh',
+                deviceStatuses: const [],
+                phasePlans: const [],
+                skipDangerConfirm: false,
+                onApply: () async {},
+                onRefresh: () async {},
+                onToggleSkipConfirm: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    final saveButton =
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Lưu'));
+    final checkButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Kiểm tra'));
+
+    expect(field.enabled, isFalse);
+    expect(saveButton.onPressed, isNull);
+    expect(checkButton.onPressed, isNull);
+  });
+
+  testWidgets('phase timing controls lock while a plan is activating',
+      (WidgetTester tester) async {
+    final plan = PhasePlan(
+      id: 7,
+      name: 'Chu kỳ dự phòng',
+      isActive: false,
+      steps: [
+        PhaseStep(code: 'NS_GREEN', durationSeconds: 10),
+        PhaseStep(code: 'NS_YELLOW', durationSeconds: 3),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              ManageView(
+                phasePlans: [plan],
+                approaches: const [],
+                isRunning: (key) => key == 'plan:activate:7',
+                onUpdatePlan: (_, __, ___) async {},
+                onActivatePlan: (_) async {},
+                onUpdateApproach: (_, __) async {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final timingButtons = tester.widgetList<IconButton>(
+      find.descendant(
+        of: find.byType(TimingRow),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(timingButtons, isNotEmpty);
+    expect(timingButtons.every((button) => button.onPressed == null), isTrue);
   });
 
   test('untimed normal modes are not classified as device errors', () {

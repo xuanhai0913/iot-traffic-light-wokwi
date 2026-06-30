@@ -31,7 +31,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
     });
   }
 
-  Future<void> _complete({required bool dismissed}) async {
+  Future<void> _complete() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kOnboardingKey, true);
     if (!mounted) return;
@@ -45,8 +45,8 @@ class _OnboardingGateState extends State<OnboardingGate> {
     }
     if (_seen == false) {
       return OnboardingScreen(
-        onSkip: () => _complete(dismissed: true),
-        onStart: () => _complete(dismissed: false),
+        onSkip: _complete,
+        onStart: _complete,
       );
     }
     return widget.home;
@@ -88,7 +88,8 @@ class OnboardingScreen extends StatelessWidget {
       iconBg: Color(0x3334C759),
       name: 'AUTO',
       desc: 'Chu kỳ tự động lần lượt qua pha Bắc-Nam xanh/vàng rồi '
-          'Đông-Tây xanh/vàng. Firmware mặc định 8 giây xanh, 3 giây vàng.',
+          'Đông-Tây xanh/vàng. Thời gian lấy từ chu kỳ đang kích hoạt '
+          'trên backend.',
       tag: 'MẶC ĐỊNH',
       tagColor: AppColors.success,
       tagBg: Color(0x2634C759),

@@ -67,6 +67,9 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   }
 
   void _setRunning(String key, bool value) {
+    if (!mounted) {
+      return;
+    }
     setState(() {
       if (value) {
         _runningActions.add(key);
@@ -106,6 +109,9 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
     } catch (error) {
       // Persistent settings are optional; the app still works with
       // the default API URL if SharedPreferences is unavailable.
+    }
+    if (!mounted) {
+      return;
     }
     await refreshDashboard();
   }
@@ -156,9 +162,12 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
   Future<void> refreshDashboard({bool force = false}) async {
     if (_dashboardRefreshInFlight && force) {
-      while (_dashboardRefreshInFlight) {
+      while (_dashboardRefreshInFlight && mounted) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
+    }
+    if (!mounted) {
+      return;
     }
     if (_dashboardRefreshInFlight) {
       return;
@@ -174,8 +183,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       final data = await api.getJson('/api/intersections/1/dashboard');
       if (!mounted) return;
       setState(() {
-        dashboard =
-            DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
+        dashboard = DashboardSnapshot.fromJson(requireDataMap(data));
         online = true;
         _lastSnapshotAt = DateTime.now();
         _pollTick = 0;
@@ -205,8 +213,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       final data = await api.getJson('/api/intersections/1/dashboard');
       if (!mounted) return;
       setState(() {
-        dashboard =
-            DashboardSnapshot.fromJson(data['data'] as Map<String, dynamic>);
+        dashboard = DashboardSnapshot.fromJson(requireDataMap(data));
         online = true;
         _lastSnapshotAt = DateTime.now();
         _pollTick = 0;
@@ -237,7 +244,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       if (!mounted) return;
       setState(() {
         dashboard = dashboard.copyWith(
-          status: TrafficStatus.fromJson(data['data'] as Map<String, dynamic>),
+          status: TrafficStatus.fromJson(requireDataMap(data)),
         );
         _lastSnapshotAt = DateTime.now();
       });
@@ -264,6 +271,9 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       if (confirmed != true) {
         return;
       }
+      if (!mounted) {
+        return;
+      }
     }
 
     _setRunning(key, true);
@@ -276,7 +286,8 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
         'createdBy': 'operator',
       });
 
-      final result = data['data'] as Map<String, dynamic>;
+      final result = requireDataMap(data);
+      final commandTrafficStatus = asMap(result['trafficStatus']);
       await refreshDashboard(force: true);
       if (!mounted) return;
       setState(() {
@@ -285,13 +296,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       final latestCommand = _latestCommandEntry(result) ??
           CommandEntry.fallback(
             command: result['command']?.toString() ?? 'SET_$modeCode',
-            modeCode: result['trafficStatus'] is Map<String, dynamic>
-                ? text(
-                    (result['trafficStatus']
-                        as Map<String, dynamic>)['modeCode'],
-                    modeCode,
-                  )
-                : modeCode,
+            modeCode: text(commandTrafficStatus['modeCode'], modeCode),
             source: 'flutter',
             createdBy: 'operator',
           );
@@ -416,7 +421,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
   Future<void> updatePhasePlan(
       PhasePlan plan, int greenSeconds, int yellowSeconds) async {
     final key = 'plan:update:${plan.id}';
-    if (isRunning(key)) {
+    if (isRunning(key) || isRunning('plan:activate:${plan.id}')) {
       return;
     }
     _setRunning(key, true);
@@ -431,7 +436,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showSnack(SnackKind.success, 'Đã cập nhật phase plan ${plan.name}');
+      _showSnack(SnackKind.success, 'Đã cập nhật chu kỳ ${plan.name}');
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {
@@ -443,7 +448,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
 
   Future<void> activatePhasePlan(PhasePlan plan) async {
     final key = 'plan:activate:${plan.id}';
-    if (isRunning(key)) {
+    if (isRunning(key) || isRunning('plan:update:${plan.id}')) {
       return;
     }
     _setRunning(key, true);
@@ -455,7 +460,7 @@ class _TrafficHomePageState extends State<TrafficHomePage> {
       setState(() {
         online = true;
       });
-      _showSnack(SnackKind.success, 'Đã kích hoạt phase plan ${plan.name}');
+      _showSnack(SnackKind.success, 'Đã kích hoạt chu kỳ ${plan.name}');
     } catch (error) {
       _showSnack(SnackKind.error, error.toString());
     } finally {

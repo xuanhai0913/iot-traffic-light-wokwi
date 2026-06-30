@@ -34,12 +34,12 @@ class MobileSettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final applying = isRunning('apply-url');
     final refreshing = isRunning('refresh');
+    final busy = applying || refreshing;
     final parsedHost = Uri.tryParse(apiBase)?.host ?? '';
     final host = parsedHost.isEmpty ? apiBase : parsedHost;
     final primaryDevice = deviceStatuses.isEmpty ? null : deviceStatuses.first;
-    final activePlan = phasePlans.where((plan) => plan.isActive).isEmpty
-        ? (phasePlans.isEmpty ? null : phasePlans.first)
-        : phasePlans.firstWhere((plan) => plan.isActive);
+    final activePlans = phasePlans.where((plan) => plan.isActive);
+    final activePlan = activePlans.isEmpty ? null : activePlans.first;
     final lastSeenRaw = compactTime(primaryDevice?['last_seen_at']);
     final lastSeen = lastSeenRaw.isEmpty ? '—' : lastSeenRaw;
     final deviceState = text(primaryDevice?['connection_state'], '');
@@ -89,12 +89,16 @@ class MobileSettingsView extends StatelessWidget {
             children: [
               TextField(
                 controller: controller,
-                enabled: !applying,
+                enabled: !busy,
                 style: const TextStyle(color: AppColors.foreground),
                 decoration: InputDecoration(
                   labelText: 'Địa chỉ API',
                   hintText: 'http://10.0.2.2:8000',
                   prefixIcon: const Icon(Icons.link),
+                  suffixIcon: const Tooltip(
+                    message: 'Điện thoại thật cần dùng IP LAN của máy chạy API',
+                    child: Icon(Icons.info_outline),
+                  ),
                   filled: true,
                   fillColor: AppColors.surface2,
                   border: OutlineInputBorder(
@@ -105,14 +109,14 @@ class MobileSettingsView extends StatelessWidget {
                 keyboardType: TextInputType.url,
                 textCapitalization: TextCapitalization.none,
                 autocorrect: false,
-                onSubmitted: (_) => onApply(),
+                onSubmitted: busy ? null : (_) => onApply(),
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: applying ? null : onApply,
+                      onPressed: busy ? null : onApply,
                       icon: applying
                           ? const SizedBox(
                               width: 16,
@@ -126,7 +130,7 @@ class MobileSettingsView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: refreshing ? null : onRefresh,
+                      onPressed: busy ? null : onRefresh,
                       icon: refreshing
                           ? const SizedBox(
                               width: 16,

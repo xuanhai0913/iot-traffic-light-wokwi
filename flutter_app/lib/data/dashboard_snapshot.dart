@@ -71,6 +71,28 @@ Map<String, dynamic> asMap(Object? value) {
   return <String, dynamic>{};
 }
 
+Map<String, dynamic> requireMap(Object? value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map((key, item) => MapEntry(key.toString(), item));
+  }
+  throw ApiException('API trả về dữ liệu không hợp lệ');
+}
+
+Map<String, dynamic> requireDataMap(Map<String, dynamic> payload) {
+  return requireMap(payload['data']);
+}
+
+Map<String, dynamic> decodeJsonObject(String body) {
+  if (body.isEmpty) {
+    return <String, dynamic>{};
+  }
+  final decoded = jsonDecode(body);
+  return requireMap(decoded);
+}
+
 List<dynamic> asList(Object? value) => value is List ? value : <dynamic>[];
 
 String text(Object? value, String fallback) {
@@ -103,8 +125,34 @@ bool boolean(Object? value, bool fallback) {
 }
 
 String compactTime(Object? value) {
-  final raw = value?.toString() ?? '';
-  return raw.replaceFirst('T', ' ').split('.').first;
+  final raw = value?.toString().trim() ?? '';
+  if (raw.isEmpty) {
+    return '';
+  }
+
+  final normalized = raw.contains('T') ? raw : raw.replaceFirst(' ', 'T');
+  final parsed = DateTime.tryParse(normalized);
+  if (parsed == null) {
+    return raw.replaceFirst('T', ' ').split('.').first;
+  }
+
+  final hasExplicitZone = RegExp(r'(Z|[+-]\d{2}:?\d{2})$', caseSensitive: false)
+      .hasMatch(normalized);
+  final instant = hasExplicitZone
+      ? parsed
+      : DateTime.utc(
+          parsed.year,
+          parsed.month,
+          parsed.day,
+          parsed.hour,
+          parsed.minute,
+          parsed.second,
+        );
+  final local = instant.toLocal();
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+      '${twoDigits(local.hour)}:${twoDigits(local.minute)}:'
+      '${twoDigits(local.second)}';
 }
 
 String humanizeDeviceMessage(String raw) {
@@ -199,12 +247,10 @@ class ApiClient {
   }
 
   Map<String, dynamic> _decodeOrThrow(http.Response response) {
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+    final decoded = decodeJsonObject(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final error = decoded['error'];
-      if (error is Map<String, dynamic> && error['message'] != null) {
+      final error = asMap(decoded['error']);
+      if (error['message'] != null) {
         throw ApiException(error['message'].toString());
       }
       throw ApiException('HTTP ${response.statusCode}');
@@ -395,7 +441,7 @@ class PhasePlan {
   factory PhasePlan.fromJson(Map<String, dynamic> json) {
     return PhasePlan(
       id: number(json['id'], 0),
-      name: text(json['name'], 'Phase plan'),
+      name: text(json['name'], 'Chu kỳ'),
       isActive: boolean(json['is_active'] ?? json['isActive'], false),
       steps: asList(json['steps'])
           .map((item) => PhaseStep.fromJson(asMap(item)))

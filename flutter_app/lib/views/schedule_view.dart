@@ -42,6 +42,7 @@ class _ManageViewState extends State<ManageView> {
         widget.isRunning('plan:update:${displayedPlan.id}');
     final activatingPlan = displayedPlan != null &&
         widget.isRunning('plan:activate:${displayedPlan.id}');
+    final planBusy = updatingPlan || activatingPlan;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -106,14 +107,14 @@ class _ManageViewState extends State<ManageView> {
             color: AppColors.warn,
             label: 'Đèn vàng',
             value: yellow,
-            onMinus: updatingPlan || yellow <= 2
+            onMinus: planBusy || yellow <= 2
                 ? null
                 : () => widget.onUpdatePlan(
                       displayedPlan,
                       green,
                       yellow - 1,
                     ),
-            onPlus: updatingPlan
+            onPlus: planBusy
                 ? null
                 : () => widget.onUpdatePlan(
                       displayedPlan,
@@ -126,14 +127,14 @@ class _ManageViewState extends State<ManageView> {
             color: AppColors.success,
             label: 'Đèn xanh',
             value: green,
-            onMinus: updatingPlan || green <= 5
+            onMinus: planBusy || green <= 5
                 ? null
                 : () => widget.onUpdatePlan(
                       displayedPlan,
                       green - 5,
                       yellow,
                     ),
-            onPlus: updatingPlan
+            onPlus: planBusy
                 ? null
                 : () => widget.onUpdatePlan(
                       displayedPlan,

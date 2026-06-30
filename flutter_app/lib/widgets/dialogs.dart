@@ -79,20 +79,24 @@ class CommandResultDialog extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ResultRow(label: 'Command ID', value: commandId),
-        _ResultRow(label: 'Mode', value: modeCode),
+        _ResultRow(
+          label: 'Lệnh',
+          value: '${commandLabel(command, modeCode: modeCode)} ($command)',
+        ),
+        _ResultRow(label: 'Mã lệnh', value: commandId),
+        _ResultRow(label: 'Chế độ', value: modeCode),
         _ResultRow(label: 'Nguồn', value: source),
         _ResultRow(label: 'Người gửi', value: createdBy),
-        _ResultRow(label: 'API', value: commandStatus),
+        _ResultRow(label: 'Trạng thái API', value: commandStatus),
         _ResultRow(label: 'Thiết bị', value: '$statusText ($deviceStatus)'),
         if (createdAt.isNotEmpty)
           _ResultRow(label: 'Tạo lúc', value: createdAt),
         if (publishedAt.isNotEmpty)
-          _ResultRow(label: 'Publish lúc', value: publishedAt),
+          _ResultRow(label: 'Đăng MQTT lúc', value: publishedAt),
         if (acknowledgedAt.isNotEmpty)
-          _ResultRow(label: 'ACK lúc', value: acknowledgedAt),
+          _ResultRow(label: 'Xác nhận lúc', value: acknowledgedAt),
         if (mqttTopic.isNotEmpty)
-          _ResultRow(label: 'MQTT topic', value: mqttTopic),
+          _ResultRow(label: 'Chủ đề MQTT', value: mqttTopic),
         if (deviceMessage.isNotEmpty)
           _ResultRow(
             label: 'Chi tiết',
@@ -105,12 +109,13 @@ class CommandResultDialog extends StatelessWidget {
         ),
       ],
     );
+    final scrollableBody = SingleChildScrollView(child: body);
     if (isIOS) {
       return CupertinoAlertDialog(
-        title: Text(_title(deviceStatus, command)),
+        title: Text(_title(deviceStatus)),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: body,
+          child: scrollableBody,
         ),
         actions: [
           CupertinoDialogAction(
@@ -127,12 +132,11 @@ class CommandResultDialog extends StatelessWidget {
           Icon(_statusIcon(deviceStatus), color: statusColor),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(_title(deviceStatus, command),
-                overflow: TextOverflow.ellipsis),
+            child: Text(_title(deviceStatus), overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
-      content: body,
+      content: scrollableBody,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -142,13 +146,13 @@ class CommandResultDialog extends StatelessWidget {
     );
   }
 
-  String _title(String deviceStatus, String command) {
+  String _title(String deviceStatus) {
     return switch (deviceStatus) {
-      'acknowledged' => 'Thiết bị đã áp dụng $command',
-      'published' => 'Đã gửi $command lên MQTT',
-      'publish_failed' => 'Gửi $command xuống thiết bị thất bại',
-      'not_sent' => '$command bị từ chối',
-      _ => 'Đã ghi nhận $command',
+      'acknowledged' => 'Thiết bị đã áp dụng lệnh',
+      'published' => 'Đã gửi lệnh lên MQTT',
+      'publish_failed' => 'Gửi lệnh xuống thiết bị thất bại',
+      'not_sent' => 'Lệnh bị từ chối',
+      _ => 'Đã ghi nhận lệnh',
     };
   }
 
@@ -221,6 +225,8 @@ class DangerousCommandDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final command = 'SET_$modeCode';
+    final title = 'Xác nhận ${commandLabel(command, modeCode: modeCode)}';
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,6 +240,11 @@ class DangerousCommandDialog extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(_impact),
+        const SizedBox(height: 8),
+        Text(
+          'Mã lệnh: $command',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 12),
         const Text(
           'Thiết bị sẽ nhận mode mới khi bridge MQTT gửi lệnh thành công.',
@@ -243,7 +254,7 @@ class DangerousCommandDialog extends StatelessWidget {
     );
     if (isIOS) {
       return CupertinoAlertDialog(
-        title: Text('Xác nhận SET_$modeCode'),
+        title: Text(title),
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: content,
@@ -263,7 +274,7 @@ class DangerousCommandDialog extends StatelessWidget {
     }
     return AlertDialog(
       icon: Icon(danger.icon, color: danger.color, size: 32),
-      title: Text('Xác nhận SET_$modeCode'),
+      title: Text(title),
       content: content,
       actions: [
         TextButton(
